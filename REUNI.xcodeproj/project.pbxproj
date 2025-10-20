@@ -6,6 +6,15 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		246FEF7E2E9832BB00F0E570 /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 246FEF7D2E9832BB00F0E570 /* Auth */; };
+		246FEF802E9832BB00F0E570 /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = 246FEF7F2E9832BB00F0E570 /* Functions */; };
+		246FEF822E9832BB00F0E570 /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = 246FEF812E9832BB00F0E570 /* PostgREST */; };
+		246FEF842E9832BB00F0E570 /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = 246FEF832E9832BB00F0E570 /* Realtime */; };
+		246FEF862E9832BB00F0E570 /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = 246FEF852E9832BB00F0E570 /* Storage */; };
+		246FEF8A2E98545E00F0E570 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 246FEF892E98545E00F0E570 /* Supabase */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		246FEF2D2E969D9A00F0E570 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -65,6 +74,12 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				246FEF822E9832BB00F0E570 /* PostgREST in Frameworks */,
+				246FEF802E9832BB00F0E570 /* Functions in Frameworks */,
+				246FEF8A2E98545E00F0E570 /* Supabase in Frameworks */,
+				246FEF7E2E9832BB00F0E570 /* Auth in Frameworks */,
+				246FEF862E9832BB00F0E570 /* Storage in Frameworks */,
+				246FEF842E9832BB00F0E570 /* Realtime in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -125,6 +140,12 @@
 			);
 			name = REUNI;
 			packageProductDependencies = (
+				246FEF7D2E9832BB00F0E570 /* Auth */,
+				246FEF7F2E9832BB00F0E570 /* Functions */,
+				246FEF812E9832BB00F0E570 /* PostgREST */,
+				246FEF832E9832BB00F0E570 /* Realtime */,
+				246FEF852E9832BB00F0E570 /* Storage */,
+				246FEF892E98545E00F0E570 /* Supabase */,
 			);
 			productName = REUNI;
 			productReference = 246FEF1B2E969D9900F0E570 /* REUNI.app */;
@@ -208,6 +229,9 @@
 			);
 			mainGroup = 246FEF122E969D9900F0E570;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				246FEF7C2E9832BB00F0E570 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 246FEF1C2E969D9900F0E570 /* Products */;
 			projectDirPath = "";
@@ -595,6 +619,50 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		246FEF7C2E9832BB00F0E570 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase-community/supabase-swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		246FEF7D2E9832BB00F0E570 /* Auth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 246FEF7C2E9832BB00F0E570 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Auth;
+		};
+		246FEF7F2E9832BB00F0E570 /* Functions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 246FEF7C2E9832BB00F0E570 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Functions;
+		};
+		246FEF812E9832BB00F0E570 /* PostgREST */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 246FEF7C2E9832BB00F0E570 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = PostgREST;
+		};
+		246FEF832E9832BB00F0E570 /* Realtime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 246FEF7C2E9832BB00F0E570 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Realtime;
+		};
+		246FEF852E9832BB00F0E570 /* Storage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 246FEF7C2E9832BB00F0E570 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Storage;
+		};
+		246FEF892E98545E00F0E570 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 246FEF7C2E9832BB00F0E570 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 246FEF132E969D9900F0E570 /* Project object */;
 }
