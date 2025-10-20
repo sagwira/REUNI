@@ -15,6 +15,7 @@ struct UserProfile: Codable {
     let phoneNumber: String?
     let username: String
     let university: String
+    let city: String?
     let profilePictureUrl: String?
     let studentIDUrl: String?
     let statusMessage: String?
@@ -28,6 +29,7 @@ struct UserProfile: Codable {
         case phoneNumber = "phone_number"
         case username
         case university
+        case city
         case profilePictureUrl = "profile_picture_url"
         case studentIDUrl = "student_id_url"
         case statusMessage = "status_message"
@@ -43,6 +45,7 @@ struct CreateUserProfile: Codable {
     let phoneNumber: String
     let username: String
     let university: String
+    let city: String
     let profilePictureUrl: String?
     let studentIDUrl: String?
     let createdAt: Date?
@@ -56,6 +59,7 @@ struct CreateUserProfile: Codable {
         case phoneNumber = "phone_number"
         case username
         case university
+        case city
         case profilePictureUrl = "profile_picture_url"
         case studentIDUrl = "student_id_url"
         case createdAt = "created_at"

@@ -203,6 +203,63 @@ class AuthenticationManager {
         }
     }
 
+    // MARK: - Password Reset OTP
+
+    @MainActor
+    func verifyPasswordResetOTP(email: String, token: String) async throws -> Bool {
+        do {
+            print("🔐 Verifying password reset OTP for email: \(email)")
+            _ = try await supabase.auth.verifyOTP(
+                email: email,
+                token: token,
+                type: .recovery
+            )
+
+            print("✅ Password reset OTP verified successfully")
+            // Don't authenticate user - they need to log in after resetting password
+            return true
+        } catch {
+            print("❌ Password reset OTP verification failed: \(error)")
+            let errorDescription = error.localizedDescription.lowercased()
+
+            if errorDescription.contains("expired") || errorDescription.contains("invalid") {
+                if errorDescription.contains("expired") {
+                    throw AuthError.otpExpired
+                } else {
+                    throw AuthError.invalidOTP
+                }
+            }
+
+            throw AuthError.invalidOTP
+        }
+    }
+
+    @MainActor
+    func resendPasswordResetOTP(email: String) async throws {
+        do {
+            print("📧 Resending password reset OTP to: \(email)")
+            try await supabase.auth.resetPasswordForEmail(email, redirectTo: nil)
+            print("✅ Password reset OTP resent successfully")
+        } catch {
+            print("❌ Failed to resend password reset OTP: \(error)")
+            throw error
+        }
+    }
+
+    @MainActor
+    func updatePassword(newPassword: String) async throws {
+        do {
+            print("🔐 Updating password")
+            try await supabase.auth.update(user: UserAttributes(password: newPassword))
+            print("✅ Password updated successfully")
+            // Sign out user so they need to log in with new password
+            await logout()
+        } catch {
+            print("❌ Password update failed: \(error)")
+            throw error
+        }
+    }
+
     // MARK: - Check Username Availability
 
     @MainActor
@@ -235,6 +292,9 @@ class AuthenticationManager {
         profilePictureUrl: String? = nil,
         studentIDUrl: String? = nil
     ) async throws {
+        // Get city from university using mapper
+        let city = UniversityLocationMapper.getCity(for: university)
+
         let profile = CreateUserProfile(
             id: userId,
             email: email,
@@ -243,6 +303,7 @@ class AuthenticationManager {
             phoneNumber: phoneNumber,
             username: username,
             university: university,
+            city: city,
             profilePictureUrl: profilePictureUrl,
             studentIDUrl: studentIDUrl,
             createdAt: nil,
@@ -255,6 +316,8 @@ class AuthenticationManager {
             print("   - User ID: \(userId)")
             print("   - Email: \(email)")
             print("   - Username: \(username)")
+            print("   - University: \(university)")
+            print("   - City: \(city)")
 
             // Check current session
             if let session = try? await supabase.auth.session {

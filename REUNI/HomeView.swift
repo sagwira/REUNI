@@ -210,6 +210,10 @@ struct HomeView: View {
                     UploadTicketView()
                 }
                 .task {
+                    // Set default city filter to user's city
+                    if let userCity = authManager.currentUser?.city, !userCity.isEmpty, userCity != "Unknown" {
+                        selectedCity = userCity
+                    }
                     await loadEvents()
                     setupRealtimeSubscription()
                 }

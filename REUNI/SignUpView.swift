@@ -13,7 +13,7 @@ struct SignUpView: View {
     let authManager: AuthenticationManager
 
     @State private var fullName: String = ""
-    @State private var dateOfBirth: Date = Date()
+    @State private var dateOfBirth: Date = Calendar.current.date(byAdding: .year, value: -18, to: Date()) ?? Date()
     @State private var email: String = ""
     @State private var phoneNumber: String = ""
     @State private var university: String = ""
@@ -82,6 +82,11 @@ struct SignUpView: View {
         "Plymouth University"
     ].sorted()
 
+    // Maximum date allowed (must be 18 years or older)
+    private var maximumDateOfBirth: Date {
+        Calendar.current.date(byAdding: .year, value: -18, to: Date()) ?? Date()
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -145,7 +150,7 @@ struct SignUpView: View {
                                     .foregroundStyle(.gray)
                                     .frame(width: 20)
 
-                                DatePicker("", selection: $dateOfBirth, displayedComponents: .date)
+                                DatePicker("", selection: $dateOfBirth, in: ...maximumDateOfBirth, displayedComponents: .date)
                                     .labelsHidden()
                                     .foregroundStyle(.black)
                                     .frame(maxWidth: .infinity, alignment: .leading)

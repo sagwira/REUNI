@@ -150,7 +150,7 @@ struct LoginView: View {
                 Text(errorMessage)
             }
             .sheet(isPresented: $showForgotPassword) {
-                ForgotPasswordView()
+                ForgotPasswordView(authManager: authManager)
             }
             .sheet(isPresented: $showSignUp) {
                 SignUpView(authManager: authManager)

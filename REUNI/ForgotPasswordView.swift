@@ -6,164 +6,102 @@
 //
 
 import SwiftUI
-
-enum RecoveryMethod {
-    case email
-    case phone
-}
+import Supabase
 
 struct ForgotPasswordView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var selectedMethod: RecoveryMethod?
-    @State private var inputValue: String = ""
+
+    let authManager: AuthenticationManager
+
+    @State private var usernameOrEmail: String = ""
+    @State private var isResetting = false
+    @State private var showError = false
+    @State private var errorMessage = ""
+    @State private var showOTPVerification = false
+    @State private var verifiedEmail: String = ""
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                // Background gradient
-                LinearGradient(
-                    colors: [Color(red: 0.4, green: 0.0, blue: 0.0), Color(red: 0.2, green: 0.0, blue: 0.0)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
+            GeometryReader { geometry in
+                ZStack {
+                    // Background gradient
+                    LinearGradient(
+                        colors: [Color(red: 0.4, green: 0.0, blue: 0.0), Color(red: 0.2, green: 0.0, blue: 0.0)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .ignoresSafeArea()
 
-                VStack(spacing: 24) {
-                    Spacer()
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: 0) {
+                            // Title
+                            VStack(spacing: 8) {
+                                Text("Reset Your")
+                                    .font(.system(size: min(geometry.size.width * 0.085, 32), weight: .bold))
+                                    .foregroundStyle(.white)
 
-                    // Title
-                    Text("Forgot Password")
-                        .font(.system(size: 32, weight: .bold))
-                        .foregroundStyle(.white)
-
-                    if selectedMethod == nil {
-                        // Method Selection
-                        VStack(spacing: 16) {
-                            Text("Choose recovery method")
-                                .font(.subheadline)
-                                .foregroundStyle(.white.opacity(0.8))
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 32)
-                                .padding(.bottom, 8)
-
-                            // Email Option
-                            Button(action: {
-                                selectedMethod = .email
-                            }) {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "envelope.fill")
-                                        .font(.system(size: 24))
-                                        .foregroundStyle(.black)
-
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Email")
-                                            .font(.headline)
-                                            .foregroundStyle(.black)
-                                        Text("Reset via email address")
-                                            .font(.caption)
-                                            .foregroundStyle(.gray)
-                                    }
-
-                                    Spacer()
-
-                                    Image(systemName: "chevron.right")
-                                        .foregroundStyle(.gray)
-                                }
-                                .padding()
-                                .frame(maxWidth: .infinity)
-                                .background(.white)
-                                .cornerRadius(12)
+                                Text("Password")
+                                    .font(.system(size: min(geometry.size.width * 0.085, 32), weight: .bold))
+                                    .foregroundStyle(.white)
                             }
-                            .padding(.horizontal, 32)
+                            .padding(.top, max(geometry.safeAreaInsets.top + 20, 40))
+                            .padding(.bottom, 12)
 
-                            // Phone Option
-                            Button(action: {
-                                selectedMethod = .phone
-                            }) {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "phone.fill")
-                                        .font(.system(size: 24))
-                                        .foregroundStyle(.black)
-
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Phone Number")
-                                            .font(.headline)
-                                            .foregroundStyle(.black)
-                                        Text("Reset via phone number")
-                                            .font(.caption)
-                                            .foregroundStyle(.gray)
-                                    }
-
-                                    Spacer()
-
-                                    Image(systemName: "chevron.right")
-                                        .foregroundStyle(.gray)
-                                }
-                                .padding()
-                                .frame(maxWidth: .infinity)
-                                .background(.white)
-                                .cornerRadius(12)
-                            }
-                            .padding(.horizontal, 32)
-                        }
-                    } else {
-                        // Input Field
-                        VStack(spacing: 16) {
-                            Text(selectedMethod == .email ? "Enter your email to reset your password" : "Enter your phone number to reset your password")
-                                .font(.subheadline)
-                                .foregroundStyle(.white.opacity(0.8))
+                            // Description
+                            Text("Enter your username or email address and we'll send you a link to reset your password")
+                                .font(.system(size: 15))
+                                .foregroundStyle(.white.opacity(0.9))
                                 .multilineTextAlignment(.center)
-                                .padding(.horizontal, 32)
+                                .padding(.horizontal, max(geometry.size.width * 0.08, 24))
+                                .padding(.bottom, 32)
 
+                            // Input Field
                             HStack(spacing: 12) {
-                                Image(systemName: selectedMethod == .email ? "envelope" : "phone")
+                                Image(systemName: "person.circle")
                                     .foregroundStyle(.gray)
+                                    .font(.system(size: 18))
 
-                                if selectedMethod == .email {
-                                    TextField("", text: $inputValue, prompt: Text("Email").foregroundColor(.gray))
-                                        .textInputAutocapitalization(.never)
-                                        .autocorrectionDisabled()
-                                        .keyboardType(.emailAddress)
-                                        .foregroundStyle(.black)
+                                TextField("", text: $usernameOrEmail, prompt: Text("Username or Email").foregroundColor(.gray))
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled()
+                                    .foregroundStyle(.black)
+                            }
+                            .padding(16)
+                            .background(.white)
+                            .cornerRadius(14)
+                            .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+                            .padding(.horizontal, max(geometry.size.width * 0.08, 24))
+                            .padding(.bottom, 24)
+
+                            // Send Reset Link Button
+                            Button(action: {
+                                Task {
+                                    await handleReset()
+                                }
+                            }) {
+                                if isResetting {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 56)
                                 } else {
-                                    TextField("", text: $inputValue, prompt: Text("Phone Number").foregroundColor(.gray))
-                                        .keyboardType(.phonePad)
+                                    Text("Send Reset Link")
+                                        .font(.system(size: 17, weight: .semibold))
                                         .foregroundStyle(.black)
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 56)
                                 }
                             }
-                            .padding()
                             .background(.white)
-                            .cornerRadius(12)
-                            .padding(.horizontal, 32)
+                            .cornerRadius(14)
+                            .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+                            .disabled(isResetting || usernameOrEmail.isEmpty)
+                            .opacity((isResetting || usernameOrEmail.isEmpty) ? 0.6 : 1.0)
+                            .padding(.horizontal, max(geometry.size.width * 0.08, 24))
 
-                            // Back Button
-                            Button(action: {
-                                selectedMethod = nil
-                                inputValue = ""
-                            }) {
-                                Text("Choose different method")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.white.opacity(0.8))
-                                    .underline()
-                            }
-
-                            // Reset Button
-                            Button(action: handleReset) {
-                                Text("Send Reset Link")
-                                    .font(.headline)
-                                    .foregroundStyle(.black)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 18)
-                                    .background(.white)
-                                    .cornerRadius(12)
-                            }
-                            .padding(.horizontal, 32)
-                            .padding(.top, 8)
+                            Spacer(minLength: 40)
                         }
                     }
-
-                    Spacer()
-                    Spacer()
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -175,17 +113,87 @@ struct ForgotPasswordView: View {
                     .foregroundStyle(.white)
                 }
             }
+            .alert("Error", isPresented: $showError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(errorMessage)
+            }
+            .sheet(isPresented: $showOTPVerification) {
+                PasswordResetOTPView(email: verifiedEmail, authManager: authManager)
+            }
+            .onChange(of: authManager.isAuthenticated) { _, isAuthenticated in
+                // If user logs out (password reset complete), dismiss this view
+                if !isAuthenticated {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                        dismiss()
+                    }
+                }
+            }
         }
     }
 
-    private func handleReset() {
-        // Reset password logic will go here
-        let method = selectedMethod == .email ? "email" : "phone"
-        print("Reset password via \(method): \(inputValue)")
-        dismiss()
+    @MainActor
+    private func handleReset() async {
+        guard !usernameOrEmail.isEmpty else {
+            errorMessage = "Please enter your username or email"
+            showError = true
+            return
+        }
+
+        isResetting = true
+
+        do {
+            // Look up user by username or email
+            let email = try await lookupUserEmail(usernameOrEmail: usernameOrEmail)
+
+            // Send password reset OTP via Supabase
+            try await supabase.auth.resetPasswordForEmail(email, redirectTo: nil)
+
+            print("✅ Password reset OTP sent to: \(email)")
+            verifiedEmail = email
+            isResetting = false
+            showOTPVerification = true
+        } catch {
+            errorMessage = "Account not found. Please check your username or email."
+            showError = true
+            isResetting = false
+        }
+    }
+
+    private func lookupUserEmail(usernameOrEmail: String) async throws -> String {
+        // Check if input is an email (contains @)
+        if usernameOrEmail.contains("@") {
+            // Input is email, verify it exists
+            let profiles: [UserProfile] = try await supabase
+                .from("profiles")
+                .select()
+                .eq("email", value: usernameOrEmail.lowercased())
+                .execute()
+                .value
+
+            guard let profile = profiles.first else {
+                throw NSError(domain: "ForgotPassword", code: 404, userInfo: [NSLocalizedDescriptionKey: "Email not found"])
+            }
+
+            return profile.email ?? usernameOrEmail
+        } else {
+            // Input is username, look up email
+            let profiles: [UserProfile] = try await supabase
+                .from("profiles")
+                .select()
+                .eq("username", value: usernameOrEmail)
+                .execute()
+                .value
+
+            guard let profile = profiles.first, let email = profile.email else {
+                throw NSError(domain: "ForgotPassword", code: 404, userInfo: [NSLocalizedDescriptionKey: "Username not found"])
+            }
+
+            return email
+        }
     }
 }
 
 #Preview {
-    ForgotPasswordView()
+    ForgotPasswordView(authManager: AuthenticationManager())
 }
