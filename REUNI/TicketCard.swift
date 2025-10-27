@@ -15,6 +15,7 @@ struct TicketCard: View {
 
     @State private var showSellerProfile = false
     @State private var showDeleteConfirmation = false
+    @State private var showBuyTicket = false
 
     // Dark theme colors matching the image
     private var cardBackground: Color {
@@ -134,6 +135,15 @@ struct TicketCard: View {
         .background(cardBackground)
         .cornerRadius(16)
         .shadow(color: shadowColor, radius: 8, x: 0, y: 2)
+        .onTapGesture {
+            // Only allow buying if not owned by current user
+            if !isOwnedByCurrentUser {
+                showBuyTicket = true
+            }
+        }
+        .fullScreenCover(isPresented: $showBuyTicket) {
+            BuyTicketView(event: event)
+        }
         .sheet(isPresented: $showSellerProfile) {
             SellerProfileView(event: event)
                 .presentationDetents([.height(280)])
