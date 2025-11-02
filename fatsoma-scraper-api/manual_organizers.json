@@ -1,0 +1,25 @@
+{
+  "organizers": [
+    {
+      "name": "Function Next Door",
+      "vanity_url": "fnd_wrld",
+      "profile_url": "https://www.fatsoma.com/p/fnd_wrld",
+      "notes": "Main FUNCTION events - not appearing in API paginated list"
+    },
+    {
+      "name": "THE CELL",
+      "vanity_url": "sundaycell",
+      "page_id": "29b90c27-025d-42eb-a296-3b6c6bf98899",
+      "profile_url": "https://www.fatsoma.com/p/sundaycell",
+      "notes": "Nottingham's Biggest Sunday Night - weekly recurring events at The Cell nightclub"
+    }
+  ],
+  "manual_event_uuids": [
+    {
+      "event_id": "eccc2aaa-21cb-4f09-9114-a0681f4e87ff",
+      "name": "FUNCTION NEXT DOOR: SIN CITY 2",
+      "url": "https://www.fatsoma.com/e/o2abcxdy/function-next-door-sin-city-2",
+      "notes": "Example event that doesn't appear in API list"
+    }
+  ]
+}

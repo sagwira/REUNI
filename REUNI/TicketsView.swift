@@ -170,8 +170,9 @@ struct TicketsView: View {
                 .animation(.spring(response: 0.4, dampingFraction: 0.8), value: selectedTab)
             }
         }
-        .sheet(isPresented: $showUploadTicket) {
-            UploadTicketView()
+        .fullScreenCover(isPresented: $showUploadTicket) {
+            NewUploadTicketView()
+                .environment(authManager)
         }
     }
 }
@@ -320,12 +321,7 @@ struct SellingTicketsView: View {
                             ZStack(alignment: .topTrailing) {
                                 TicketCard(
                                     event: event,
-                                    currentUserId: authManager.currentUserId,
-                                    onDelete: !isSelectionMode ? {
-                                        Task {
-                                            await deleteSingleTicket(ticketId: event.id)
-                                        }
-                                    } : nil
+                                    currentUserId: authManager.currentUserId
                                 )
                                     .opacity(isSelectionMode && !selectedTickets.contains(event.id) ? 0.5 : 1.0)
                                     .onTapGesture {
@@ -419,8 +415,12 @@ struct SellingTicketsView: View {
                 let city: String?
                 let ageRestriction: Int
                 let ticketSource: String
-                let ticketImageUrl: String?
+                let eventImageUrl: String?  // Public event promotional image
+                let ticketImageUrl: String?  // Private ticket screenshot
                 let createdAt: Date
+                let ticketType: String?
+                let lastEntryType: String?
+                let lastEntryLabel: String?
 
                 enum CodingKeys: String, CodingKey {
                     case id, title, price, city
@@ -431,8 +431,12 @@ struct SellingTicketsView: View {
                     case availableTickets = "available_tickets"
                     case ageRestriction = "age_restriction"
                     case ticketSource = "ticket_source"
+                    case eventImageUrl = "event_image_url"
                     case ticketImageUrl = "ticket_image_url"
                     case createdAt = "created_at"
+                    case ticketType = "ticket_type"
+                    case lastEntryType = "last_entry_type"
+                    case lastEntryLabel = "last_entry_label"
                 }
             }
 
@@ -469,6 +473,7 @@ struct SellingTicketsView: View {
                 Event(
                     id: ticket.id,
                     title: ticket.title,
+                    userId: currentUserId,  // These are the current user's selling tickets
                     organizerId: ticket.organizerId,
                     organizerUsername: profile?.username ?? "Unknown User",
                     organizerProfileUrl: profile?.profilePictureUrl,
@@ -483,8 +488,12 @@ struct SellingTicketsView: View {
                     city: ticket.city,
                     ageRestriction: ticket.ageRestriction,
                     ticketSource: ticket.ticketSource,
+                    eventImageUrl: ticket.eventImageUrl,
                     ticketImageUrl: ticket.ticketImageUrl,
-                    createdAt: ticket.createdAt
+                    createdAt: ticket.createdAt,
+                    ticketType: ticket.ticketType,
+                    lastEntryType: ticket.lastEntryType,
+                    lastEntryLabel: ticket.lastEntryLabel
                 )
             }
 

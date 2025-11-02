@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import UIKit
 import Supabase
 
 @Observable
@@ -19,6 +20,8 @@ class AuthenticationManager {
         // Check if user is already logged in
         Task {
             await checkSession()
+            // Note: Orphaned user cleanup is now handled automatically by database CASCADE deletes
+            // See: supabase_orphaned_user_cleanup.sql
         }
     }
 
@@ -54,6 +57,7 @@ class AuthenticationManager {
                 .value
 
             currentUser = profile
+            print("✅ Profile fetched - Profile Picture URL: \(profile.profilePictureUrl ?? "nil")")
         } catch {
             print("Error fetching profile: \(error)")
         }
@@ -318,6 +322,7 @@ class AuthenticationManager {
             print("   - Username: \(username)")
             print("   - University: \(university)")
             print("   - City: \(city)")
+            print("   - Profile Picture URL: \(profilePictureUrl ?? "nil")")
 
             // Check current session
             if let session = try? await supabase.auth.session {
@@ -367,15 +372,98 @@ class AuthenticationManager {
     func uploadImage(data: Data, fileName: String, bucket: String) async throws -> String {
         let filePath = "\(UUID().uuidString)/\(fileName)"
 
-        try await supabase.storage
-            .from(bucket)
-            .upload(filePath, data: data, options: FileOptions(contentType: "image/jpeg"))
+        print("📤 Starting image upload:")
+        print("   - Bucket: \(bucket)")
+        print("   - File path: \(filePath)")
+        print("   - Original data size: \(data.count) bytes (\(Double(data.count) / 1024.0 / 1024.0) MB)")
 
-        let url = try supabase.storage
-            .from(bucket)
-            .getPublicURL(path: filePath)
+        // Compress image if needed (target: < 1MB)
+        var uploadData = data
+        if data.count > 1_000_000 { // If larger than 1MB
+            print("   - ⚠️ Image too large, compressing...")
+            if let image = UIImage(data: data) {
+                // Start with 0.5 compression and reduce if still too large
+                var compression: CGFloat = 0.5
+                while compression > 0.1 {
+                    if let compressedData = image.jpegData(compressionQuality: compression),
+                       compressedData.count <= 1_000_000 {
+                        uploadData = compressedData
+                        print("   - ✅ Compressed to \(uploadData.count) bytes (\(Double(uploadData.count) / 1024.0 / 1024.0) MB)")
+                        break
+                    }
+                    compression -= 0.1
+                }
 
-        return url.absoluteString
+                // If still too large after max compression, resize the image
+                if uploadData.count > 1_000_000 {
+                    print("   - ⚠️ Still too large, resizing image...")
+                    let maxDimension: CGFloat = 1024
+                    let scale = min(maxDimension / image.size.width, maxDimension / image.size.height)
+                    let newSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+
+                    UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
+                    image.draw(in: CGRect(origin: .zero, size: newSize))
+                    let resizedImage = UIGraphicsGetImageFromCurrentImageContext()
+                    UIGraphicsEndImageContext()
+
+                    if let resizedData = resizedImage?.jpegData(compressionQuality: 0.7) {
+                        uploadData = resizedData
+                        print("   - ✅ Resized to \(uploadData.count) bytes (\(Double(uploadData.count) / 1024.0 / 1024.0) MB)")
+                    }
+                }
+            }
+        }
+
+        // Retry upload up to 3 times
+        var lastError: Error?
+        for attempt in 1...3 {
+            do {
+                print("   - Attempt \(attempt): Uploading file...")
+
+                _ = try await supabase.storage
+                    .from(bucket)
+                    .upload(
+                        filePath,
+                        data: uploadData,
+                        options: FileOptions(contentType: "image/jpeg")
+                    )
+
+                print("   - ✅ Upload successful")
+
+                // Get public URL
+                print("   - Getting public URL...")
+                let url = try supabase.storage
+                    .from(bucket)
+                    .getPublicURL(path: filePath)
+
+                print("   - ✅ Public URL obtained: \(url.absoluteString)")
+                return url.absoluteString
+
+            } catch let error as NSError {
+                lastError = error
+                print("   - ❌ Attempt \(attempt) failed:")
+                print("     Domain: \(error.domain)")
+                print("     Code: \(error.code)")
+                print("     Description: \(error.localizedDescription)")
+
+                if attempt < 3 {
+                    print("   - Retrying in 1 second...")
+                    try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+                }
+            } catch {
+                lastError = error
+                print("   - ❌ Attempt \(attempt) failed: \(error)")
+
+                if attempt < 3 {
+                    print("   - Retrying in 1 second...")
+                    try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+                }
+            }
+        }
+
+        // All attempts failed
+        print("❌ All upload attempts failed")
+        throw lastError ?? NSError(domain: "UploadError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Upload failed after 3 attempts"])
     }
 
     // MARK: - Logout
@@ -421,6 +509,112 @@ class AuthenticationManager {
     func deleteCurrentIncompleteAccount() async {
         guard let userId = currentUserId else { return }
         await deleteIncompleteAccount(userId: userId)
+    }
+
+    // MARK: - Cleanup Orphaned Users
+
+    @MainActor
+    func cleanupOrphanedUsers() async {
+        print("🔍 Checking for orphaned user data...")
+
+        do {
+            // Fetch all profiles from the database
+            let allProfiles: [UserProfile] = try await supabase
+                .from("profiles")
+                .select()
+                .execute()
+                .value
+
+            print("📊 Found \(allProfiles.count) profiles in database")
+
+            var orphanedCount = 0
+
+            // Check each profile to see if the auth user still exists
+            for profile in allProfiles {
+                // Try to fetch the auth user - this will fail if user was deleted
+                let isOrphaned = await checkIfUserIsOrphaned(userId: profile.id)
+
+                if isOrphaned {
+                    orphanedCount += 1
+                    print("🗑️ Found orphaned user: \(profile.username) (\(profile.id))")
+                    await cleanupUserData(userId: profile.id)
+                }
+            }
+
+            if orphanedCount > 0 {
+                print("✅ Cleaned up \(orphanedCount) orphaned user(s)")
+            } else {
+                print("✅ No orphaned users found")
+            }
+
+        } catch {
+            print("❌ Error checking for orphaned users: \(error)")
+        }
+    }
+
+    @MainActor
+    private func checkIfUserIsOrphaned(userId: UUID) async -> Bool {
+        // Note: We cannot directly query auth.users from the client
+        // Instead, we use the Supabase admin API to check if user exists
+        // This requires making a request to a custom edge function or RPC
+
+        // For now, we'll use a workaround: try to get user metadata
+        // If it fails, the user is likely deleted from auth
+
+        do {
+            // Call a Supabase RPC function to check if auth user exists
+            let result: Bool = try await supabase
+                .rpc("check_auth_user_exists", params: ["user_id": userId.uuidString])
+                .execute()
+                .value
+
+            return !result  // If result is false, user doesn't exist (is orphaned)
+
+        } catch {
+            // If RPC doesn't exist or fails, skip this check
+            // This is expected if the RPC function hasn't been created yet
+            print("⚠️ Could not check auth user existence for \(userId) - RPC not available")
+            return false  // Assume not orphaned if we can't check
+        }
+    }
+
+    @MainActor
+    private func cleanupUserData(userId: UUID) async {
+        print("🧹 Cleaning up all data for user: \(userId)")
+
+        // Delete user tickets
+        _ = try? await supabase
+            .from("user_tickets")
+            .delete()
+            .eq("user_id", value: userId.uuidString)
+            .execute()
+        print("   ✓ Deleted user tickets")
+
+        // Delete friend requests (both sent and received)
+        _ = try? await supabase
+            .from("friend_requests")
+            .delete()
+            .or("sender_id.eq.\(userId.uuidString),receiver_id.eq.\(userId.uuidString)")
+            .execute()
+        print("   ✓ Deleted friend requests")
+
+        // Delete friendships
+        _ = try? await supabase
+            .from("friendships")
+            .delete()
+            .or("user_id.eq.\(userId.uuidString),friend_id.eq.\(userId.uuidString)")
+            .execute()
+        print("   ✓ Deleted friendships")
+
+        // Delete profile (do this last)
+        _ = try? await supabase
+            .from("profiles")
+            .delete()
+            .eq("id", value: userId.uuidString)
+            .execute()
+        print("   ✓ Deleted profile")
+
+        print("✅ Successfully cleaned up all data for user: \(userId)")
     }
 }
 

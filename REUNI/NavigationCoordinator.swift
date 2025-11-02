@@ -9,10 +9,14 @@ import SwiftUI
 
 enum AppScreen {
     case home
-    case tickets
-    case friends
-    case account
-    case settings
+    case myListings
+    case notifications
+    case profile
+    // Legacy cases (kept for compatibility, redirect to new tabs)
+    case tickets // Redirects to home
+    case friends // Available from profile
+    case account // Available from profile
+    case settings // Available from profile
 }
 
 @Observable

@@ -26,6 +26,7 @@ struct ProfileCreationView: View {
     @State private var showError = false
     @State private var errorMessage = ""
     @State private var isCreatingProfile = false
+    @State private var profileCreated = false  // Track if profile was successfully created
 
     var body: some View {
         NavigationStack {
@@ -127,7 +128,26 @@ struct ProfileCreationView: View {
                     Spacer()
                 }
             }
-            .navigationBarBackButtonHidden(true)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        Task {
+                            await handleCancel()
+                        }
+                    }
+                    .foregroundStyle(.white)
+                }
+            }
+            .onDisappear {
+                // Cleanup incomplete account if profile wasn't created
+                if !profileCreated && !authManager.isAuthenticated {
+                    print("⚠️ ProfileCreationView dismissed without completion - triggering cleanup")
+                    Task {
+                        await authManager.deleteIncompleteAccount(userId: userId)
+                    }
+                }
+            }
             .alert("Error", isPresented: $showError) {
                 Button("OK", role: .cancel) { }
             } message: {
@@ -204,15 +224,16 @@ struct ProfileCreationView: View {
             var profilePictureUrl: String? = nil  // Default to nil
             var imageUploadFailed = false
 
-            if let imageData = profileImage?.jpegData(compressionQuality: 0.8) {
+            if let imageData = profileImage?.jpegData(compressionQuality: 0.7) {
                 do {
                     print("📤 Uploading profile picture...")
+                    let fileName = "\(userId.uuidString)_\(Date().timeIntervalSince1970).jpg"
                     profilePictureUrl = try await authManager.uploadImage(
                         data: imageData,
-                        fileName: "profile.jpg",
+                        fileName: fileName,
                         bucket: "profile-pictures"
                     )
-                    print("✅ Profile picture uploaded successfully")
+                    print("✅ Profile picture uploaded successfully: \(profilePictureUrl ?? "nil")")
                 } catch {
                     print("⚠️ Failed to upload profile picture: \(error.localizedDescription)")
                     print("   Continuing with profile creation without image...")
@@ -224,6 +245,7 @@ struct ProfileCreationView: View {
 
             // Create user profile (with or without picture)
             print("📝 Creating user profile...")
+            print("   Profile Picture URL to save: \(profilePictureUrl ?? "nil")")
             try await authManager.createUserProfile(
                 userId: userId,
                 email: email,
@@ -237,6 +259,9 @@ struct ProfileCreationView: View {
             )
 
             print("✅ Profile created successfully!")
+
+            // Mark profile as successfully created to prevent cleanup
+            profileCreated = true
 
             // Show notification if image upload failed but profile was created
             if imageUploadFailed {
@@ -256,6 +281,21 @@ struct ProfileCreationView: View {
             errorMessage = "Error creating profile: \(error.localizedDescription)"
             showError = true
             isCreatingProfile = false
+        }
+    }
+
+    @MainActor
+    func handleCancel() async {
+        // User is canceling profile creation - cleanup the incomplete account
+        print("🗑️ User canceled profile creation - cleaning up incomplete account")
+        await authManager.deleteIncompleteAccount(userId: userId)
+
+        // Dismiss both this view and the parent view to return to login
+        dismiss()
+
+        // Also dismiss the parent OTP verification view
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            NotificationCenter.default.post(name: NSNotification.Name("DismissSignupFlow"), object: nil)
         }
     }
 }

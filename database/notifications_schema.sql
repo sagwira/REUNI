@@ -70,6 +70,7 @@ CREATE POLICY "Users can delete their own notifications"
 -- ============================================
 
 -- Function to get all notifications for a user (ordered by newest first)
+-- DYNAMICALLY fetches current username and profile picture from profiles table
 CREATE OR REPLACE FUNCTION get_user_notifications(user_uuid UUID)
 RETURNS TABLE (
     notification_id UUID,
@@ -88,13 +89,15 @@ BEGIN
         n.id as notification_id,
         n.type as notification_type,
         n.friend_user_id,
-        n.friend_username,
-        n.friend_profile_picture_url,
+        -- Dynamically fetch current username and profile picture from profiles
+        COALESCE(p.username, n.friend_username) as friend_username,
+        COALESCE(p.profile_picture_url, n.friend_profile_picture_url) as friend_profile_picture_url,
         n.title,
         n.message,
         n.is_read,
         n.created_at
     FROM notifications n
+    LEFT JOIN profiles p ON p.id = n.friend_user_id
     WHERE n.user_id = user_uuid
     ORDER BY n.created_at DESC;
 END;

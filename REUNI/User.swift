@@ -13,10 +13,10 @@ struct UserProfile: Codable {
     let fullName: String
     let dateOfBirth: Date
     let phoneNumber: String?
-    let username: String
+    var username: String
     let university: String
     let city: String?
-    let profilePictureUrl: String?
+    var profilePictureUrl: String?
     let studentIDUrl: String?
     let statusMessage: String?
     let createdAt: Date

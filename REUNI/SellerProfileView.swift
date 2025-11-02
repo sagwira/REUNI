@@ -112,6 +112,7 @@ struct SellerProfileView: View {
     SellerProfileView(event: Event(
         id: UUID(),
         title: "Spring Formal Dance",
+        userId: UUID(),
         organizerId: UUID(),
         organizerUsername: "emma_events",
         organizerProfileUrl: nil,
@@ -126,7 +127,11 @@ struct SellerProfileView: View {
         city: "London",
         ageRestriction: 18,
         ticketSource: "Fatsoma",
+        eventImageUrl: nil,
         ticketImageUrl: nil,
-        createdAt: Date()
+        createdAt: Date(),
+        ticketType: nil,
+        lastEntryType: nil,
+        lastEntryLabel: nil
     ))
 }

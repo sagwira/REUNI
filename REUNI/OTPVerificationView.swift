@@ -26,6 +26,7 @@ struct OTPVerificationView: View {
     @State private var resendCountdown = 60
     @State private var showProfileCreation = false
     @State private var timer: Timer?
+    @State private var otpVerified = false  // Track if OTP was successfully verified
     @FocusState private var focusedField: Int?
 
     var body: some View {
@@ -138,7 +139,9 @@ struct OTPVerificationView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
-                        dismiss()
+                        Task {
+                            await handleCancel()
+                        }
                     }
                     .foregroundStyle(.white)
                 }
@@ -209,6 +212,7 @@ struct OTPVerificationView: View {
 
             if success {
                 print("✅ OTP verified - showing profile creation")
+                otpVerified = true  // Mark as verified
                 isVerifying = false
                 showProfileCreation = true
             }
@@ -275,6 +279,14 @@ struct OTPVerificationView: View {
 
         let visibleChars = String(username.prefix(2))
         return "\(visibleChars)***@\(domain)"
+    }
+
+    @MainActor
+    func handleCancel() async {
+        // User is canceling OTP verification - cleanup the incomplete account
+        print("🗑️ User canceled OTP verification - cleaning up incomplete account")
+        await authManager.deleteIncompleteAccount(userId: userId)
+        dismiss()
     }
 }
 

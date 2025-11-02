@@ -51,6 +51,18 @@ struct FloatingMenuView: View {
                         }
                     )
 
+                    // My Listings Button
+                    MenuButton(
+                        icon: "list.bullet.rectangle.fill",
+                        title: "My Listings",
+                        action: {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                isShowing = false
+                            }
+                            navigationCoordinator.navigate(to: .myListings)
+                        }
+                    )
+
                     // Friends Button
                     MenuButton(
                         icon: "person.2.fill",
