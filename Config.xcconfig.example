@@ -1,0 +1,17 @@
+//
+// Config.xcconfig.example
+// REUNI
+//
+// IMPORTANT: Copy this file to Config.xcconfig and fill in your actual values
+// Config.xcconfig is gitignored and should NEVER be committed to git
+//
+
+// SUPABASE CONFIGURATION
+// Get these values from: https://app.supabase.com/project/_/settings/api
+SUPABASE_URL = https:/$()/your-project-id.supabase.co
+SUPABASE_ANON_KEY = eyJxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+// INSTRUCTIONS:
+// 1. Copy this file: cp Config.xcconfig.example Config.xcconfig
+// 2. Edit Config.xcconfig with your actual Supabase credentials
+// 3. NEVER commit Config.xcconfig to git (it's already in .gitignore)

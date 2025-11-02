@@ -5,10 +5,22 @@ Clear all tickets from the user_tickets table in Supabase
 
 import os
 from supabase import create_client, Client
+from dotenv import load_dotenv
 
-# Supabase credentials
-SUPABASE_URL = "https://skkaksjbnfxklivniqwy.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNra2Frc2pibmZ4a2xpdm5pcXd5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxOTA3ODcsImV4cCI6MjA3NTc2Njc4N30.U9JZrDag3vtEnVBnk21hvB-Q9g31-qevNwGAxatRrgU"
+# Load environment variables from fatsoma-scraper-api/.env
+env_path = os.path.join(os.path.dirname(__file__), 'fatsoma-scraper-api', '.env')
+load_dotenv(env_path)
+
+# Supabase credentials from environment
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise ValueError(
+        "Missing Supabase credentials. Please ensure fatsoma-scraper-api/.env has:\n"
+        "SUPABASE_URL=your-url\n"
+        "SUPABASE_SERVICE_KEY=your-key"
+    )
 
 def clear_all_tickets():
     """Delete all records from user_tickets table"""

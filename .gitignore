@@ -95,6 +95,10 @@ DerivedData/
 *.dSYM.zip
 *.dSYM
 
+# Xcode configuration with secrets
+Config.xcconfig
+**/Config.xcconfig
+
 # Swift Package Manager
 .build/
 Packages/
@@ -117,3 +121,9 @@ Package.resolved
 *.swp
 *.swo
 *~
+
+# ============================================
+# Security Tools
+# ============================================
+.cache_ggshield
+.bfg-report/
