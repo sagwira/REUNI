@@ -1,12 +1,88 @@
-# Python
+# ============================================
+# SENSITIVE FILES - API KEYS & SECRETS
+# ============================================
+# NEVER commit these files - they contain API keys and secrets
+*.env
+.env
+.env.local
+.env.*.local
+fatsoma-scraper-api/.env
+fatsoma-scraper-api/.env.local
+
+# API keys and configuration files
+**/config/secrets.json
+**/secrets.json
+**/credentials.json
+**/*_credentials.json
+**/*_secrets.json
+**/*_config.json
+
+# ============================================
+# LOGS & RUNTIME FILES
+# ============================================
+*.log
+*.pid
+*.db
+*.sqlite
+*.sqlite3
+
+# Server logs and process files
+server.log
+*.server.log
+.server.pid
+*.server.pid
+
+# Scraper artifacts
+fatsoma-scraper-api/*.log
+fatsoma-scraper-api/*.pid
+fatsoma-scraper-api/*.db
+fatsoma-scraper-api/server.log
+fatsoma-scraper-api/.server.pid
+fatsoma-scraper-api/fatsoma_events.db
+fatsoma-scraper-api/fixr_scraper.log
+
+# Screenshots and HTML dumps (scraper debug files)
+fatsoma-scraper-api/*.html
+fatsoma-scraper-api/*.png
+fatsoma-scraper-api/debug_*.html
+fatsoma-scraper-api/fixr_*.html
+fatsoma-scraper-api/fixr_*.png
+fatsoma-scraper-api/fatsoma_debug.html
+
+# JSON data files (may contain sensitive data)
+fatsoma-scraper-api/*.json
+!fatsoma-scraper-api/package.json
+!fatsoma-scraper-api/manual_organizers.json
+
+# ============================================
+# PYTHON
+# ============================================
 venv/
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Xcode
+# ============================================
+# XCODE & iOS
+# ============================================
 xcuserdata/
 *.xcworkspace/xcuserdata/
 DerivedData/
@@ -14,6 +90,30 @@ DerivedData/
 *.mode1v3
 *.mode2v3
 *.perspectivev3
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
 
+# Swift Package Manager
+.build/
+Packages/
+Package.pins
+Package.resolved
+
+# ============================================
 # macOS
+# ============================================
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# ============================================
+# IDEs
+# ============================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

@@ -531,8 +531,9 @@ class APIService {
     func fetchMarketplaceTickets(completion: @escaping @Sendable (Result<[UserTicket], Error>) -> Void) {
         Task {
             do {
+                // Use view with dynamic profile data (username/profile picture updated live)
                 let response: [UserTicket] = try await supabase
-                    .from("user_tickets")
+                    .from("user_tickets_with_profiles")
                     .select("*")
                     .eq("status", value: "available")
                     .order("created_at", ascending: false)
@@ -551,8 +552,9 @@ class APIService {
         Task {
             do {
                 print("🔍 [APIService] Fetching tickets for user_id: \(userId)")
+                // Use view with dynamic profile data (username/profile picture updated live)
                 let response: [UserTicket] = try await supabase
-                    .from("user_tickets")
+                    .from("user_tickets_with_profiles")
                     .select("*")
                     .eq("user_id", value: userId)
                     .order("created_at", ascending: false)
