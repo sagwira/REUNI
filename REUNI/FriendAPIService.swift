@@ -175,4 +175,64 @@ class FriendAPIService {
 
         print("✅ Friendship removed")
     }
+
+    // MARK: - Notifications
+
+    struct Notification: Identifiable, Decodable {
+        let notificationId: UUID
+        let notificationType: String
+        let friendUserId: UUID?
+        let friendUsername: String?
+        let friendProfilePictureUrl: String?
+        let title: String?
+        let message: String?
+        let isRead: Bool
+        let createdAt: Date
+
+        var id: UUID { notificationId }
+
+        enum CodingKeys: String, CodingKey {
+            case notificationId = "notification_id"
+            case notificationType = "notification_type"
+            case friendUserId = "friend_user_id"
+            case friendUsername = "friend_username"
+            case friendProfilePictureUrl = "friend_profile_picture_url"
+            case title
+            case message
+            case isRead = "is_read"
+            case createdAt = "created_at"
+        }
+    }
+
+    func getUserNotifications(userId: UUID) async throws -> [Notification] {
+        print("📬 Fetching notifications for user: \(userId)")
+
+        let response: [Notification] = try await supabase
+            .rpc("get_user_notifications", params: ["user_uuid": userId.uuidString])
+            .execute()
+            .value
+
+        print("✅ Found \(response.count) notifications")
+        return response
+    }
+
+    func markNotificationAsRead(notificationId: UUID) async throws {
+        print("✅ Marking notification as read: \(notificationId)")
+
+        try await supabase
+            .rpc("mark_notification_read", params: ["notification_uuid": notificationId.uuidString])
+            .execute()
+
+        print("✅ Notification marked as read")
+    }
+
+    func markAllNotificationsAsRead(userId: UUID) async throws {
+        print("✅ Marking all notifications as read for user: \(userId)")
+
+        try await supabase
+            .rpc("mark_all_notifications_read", params: ["user_uuid": userId.uuidString])
+            .execute()
+
+        print("✅ All notifications marked as read")
+    }
 }

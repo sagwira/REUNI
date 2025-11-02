@@ -2,7 +2,7 @@
 //  FriendsView.swift
 //  REUNI
 //
-//  Friends page with tabs for Friends, Search, and Requests
+//  Friends page - displays friends list with search button
 //
 
 import SwiftUI
@@ -12,8 +12,7 @@ struct FriendsView: View {
     @Bindable var authManager: AuthenticationManager
     @Bindable var navigationCoordinator: NavigationCoordinator
     @Bindable var themeManager: ThemeManager
-    @State private var showSideMenu = false
-    @State private var selectedTab = 0 // 0 = Friends, 1 = Search, 2 = Requests
+    @State private var showSearchSheet = false
 
     var body: some View {
         ZStack {
@@ -25,138 +24,58 @@ struct FriendsView: View {
             VStack(spacing: 0) {
                 // Top Navigation Bar
                 HStack {
-                    // Menu Button
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            showSideMenu = true
-                        }
-                    }) {
-                        Image(systemName: "line.3.horizontal")
-                            .font(.system(size: 22))
-                            .foregroundStyle(themeManager.primaryText)
-                            .frame(width: 44, height: 44)
-                    }
-
-                    Spacer()
-
                     // Title
                     Text("Friends")
-                        .font(.system(size: 20, weight: .semibold))
+                        .font(.system(size: 28, weight: .bold))
                         .foregroundStyle(themeManager.primaryText)
 
                     Spacer()
 
-                    // Profile Button
-                    TappableUserAvatar(
-                        authManager: authManager,
-                        size: 32
-                    )
+                    // Search Button
+                    Button(action: {
+                        showSearchSheet = true
+                    }) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(themeManager.primaryText)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(themeManager.cardBackground)
-                .shadow(color: themeManager.shadowColor(opacity: 0.05), radius: 2, x: 0, y: 1)
+                .padding(.top, 8)
+                .padding(.bottom, 16)
 
-                // Tab Selector
-                HStack(spacing: 0) {
-                    // Friends Tab
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            selectedTab = 0
-                        }
-                    }) {
-                        VStack(spacing: 8) {
-                            Text("Friends")
-                                .font(.system(size: 16, weight: selectedTab == 0 ? .semibold : .regular))
-                                .foregroundStyle(selectedTab == 0 ? themeManager.primaryText : themeManager.secondaryText)
-
-                            Rectangle()
-                                .fill(selectedTab == 0 ? themeManager.accentColor : Color.clear)
-                                .frame(height: 3)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-
-                    // Search Tab
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            selectedTab = 1
-                        }
-                    }) {
-                        VStack(spacing: 8) {
-                            Text("Search")
-                                .font(.system(size: 16, weight: selectedTab == 1 ? .semibold : .regular))
-                                .foregroundStyle(selectedTab == 1 ? themeManager.primaryText : themeManager.secondaryText)
-
-                            Rectangle()
-                                .fill(selectedTab == 1 ? themeManager.accentColor : Color.clear)
-                                .frame(height: 3)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-
-                    // Requests Tab
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            selectedTab = 2
-                        }
-                    }) {
-                        VStack(spacing: 8) {
-                            Text("Requests")
-                                .font(.system(size: 16, weight: selectedTab == 2 ? .semibold : .regular))
-                                .foregroundStyle(selectedTab == 2 ? themeManager.primaryText : themeManager.secondaryText)
-
-                            Rectangle()
-                                .fill(selectedTab == 2 ? themeManager.accentColor : Color.clear)
-                                .frame(height: 3)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
-                .background(themeManager.cardBackground)
-                .shadow(color: themeManager.shadowColor(opacity: 0.05), radius: 1, x: 0, y: 1)
-
-                // Content
-                TabView(selection: $selectedTab) {
-                    // Friends List Tab
-                    FriendsListView(
-                        authManager: authManager,
-                        navigationCoordinator: navigationCoordinator,
-                        themeManager: themeManager
-                    )
-                    .tag(0)
-
-                    // Search Users Tab
-                    UserSearchView(
-                        authManager: authManager,
-                        themeManager: themeManager
-                    )
-                    .tag(1)
-
-                    // Friend Requests Tab
-                    FriendRequestsView(
-                        authManager: authManager,
-                        themeManager: themeManager
-                    )
-                    .tag(2)
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
+                // Friends List
+                FriendsListView(
+                    authManager: authManager,
+                    navigationCoordinator: navigationCoordinator,
+                    themeManager: themeManager
+                )
             }
-
-            // Floating Menu Overlay
-            FloatingMenuView(
-                authManager: authManager,
-                navigationCoordinator: navigationCoordinator,
-                themeManager: themeManager,
-                isShowing: $showSideMenu
-            )
-            .zIndex(1)
+        }
+        .sheet(isPresented: $showSearchSheet) {
+            NavigationStack {
+                UserSearchView(
+                    authManager: authManager,
+                    themeManager: themeManager
+                )
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Text("Search Friends")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundStyle(themeManager.primaryText)
+                    }
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Done") {
+                            showSearchSheet = false
+                        }
+                        .foregroundStyle(themeManager.accentColor)
+                    }
+                }
+            }
         }
     }
 }
@@ -166,39 +85,15 @@ struct FriendsListView: View {
     @Bindable var authManager: AuthenticationManager
     @Bindable var navigationCoordinator: NavigationCoordinator
     @Bindable var themeManager: ThemeManager
-    @State private var searchText = ""
     @State private var friends: [Friend] = []
     @State private var isLoading = true
+    @State private var friendToRemove: Friend?
+    @State private var showRemoveConfirmation = false
 
-    var filteredFriends: [Friend] {
-        if searchText.isEmpty {
-            return friends
-        } else {
-            return friends.filter { friend in
-                friend.username.localizedCaseInsensitiveContains(searchText)
-            }
-        }
-    }
+    private let friendAPI = FriendAPIService()
 
     var body: some View {
         VStack(spacing: 0) {
-            // Search Bar
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(themeManager.secondaryText)
-                    .font(.system(size: 16))
-
-                TextField("Search friends by username...", text: $searchText)
-                    .font(.system(size: 15))
-                    .foregroundStyle(themeManager.primaryText)
-            }
-            .padding(12)
-            .background(themeManager.cardBackground)
-            .cornerRadius(12)
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 16)
-
             // Friends List
             if isLoading {
                 VStack(spacing: 16) {
@@ -209,32 +104,42 @@ struct FriendsListView: View {
                         .foregroundStyle(themeManager.secondaryText)
                     Spacer()
                 }
-            } else if filteredFriends.isEmpty {
+            } else if friends.isEmpty {
                 VStack(spacing: 16) {
                     Spacer()
                     Image(systemName: "person.2")
                         .font(.system(size: 60))
                         .foregroundStyle(themeManager.secondaryText.opacity(0.5))
 
-                    Text(searchText.isEmpty ? "No friends yet" : "No friends found")
+                    Text("No friends yet")
                         .font(.title3)
                         .fontWeight(.semibold)
                         .foregroundStyle(themeManager.primaryText)
 
-                    Text(searchText.isEmpty ? "Search for friends to add" : "Try a different search")
+                    Text("Tap the search icon to find friends")
                         .font(.subheadline)
                         .foregroundStyle(themeManager.secondaryText)
                     Spacer()
                 }
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(filteredFriends) { friend in
-                            FriendRow(friend: friend, themeManager: themeManager)
-                        }
+                List {
+                    ForEach(friends) { friend in
+                        FriendRow(friend: friend, themeManager: themeManager)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                            .swipeActions(edge: .trailing) {
+                                Button(role: .destructive) {
+                                    friendToRemove = friend
+                                    showRemoveConfirmation = true
+                                } label: {
+                                    Label("Remove", systemImage: "person.fill.xmark")
+                                }
+                            }
                     }
-                    .padding(16)
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
         }
         .task {
@@ -247,6 +152,22 @@ struct FriendsListView: View {
             print("📢 Received friends list updated notification")
             Task {
                 await loadFriends()
+            }
+        }
+        .alert("Remove Friend?", isPresented: $showRemoveConfirmation) {
+            Button("Cancel", role: .cancel) {
+                friendToRemove = nil
+            }
+            Button("Remove", role: .destructive) {
+                if let friend = friendToRemove {
+                    Task {
+                        await removeFriend(friend)
+                    }
+                }
+            }
+        } message: {
+            if let friend = friendToRemove {
+                Text("Are you sure you want to remove @\(friend.username) from your friends?")
             }
         }
     }
@@ -286,6 +207,38 @@ struct FriendsListView: View {
             print("Error loading friends: \(error)")
             friends = []
             isLoading = false
+        }
+    }
+
+    @MainActor
+    private func removeFriend(_ friend: Friend) async {
+        guard let userId = authManager.currentUserId else {
+            print("❌ No current user ID")
+            friendToRemove = nil
+            return
+        }
+
+        do {
+            print("🗑️ Removing friend: \(friend.username)")
+
+            // Call the API to remove friendship
+            try await friendAPI.removeFriend(userId: userId, friendId: friend.id)
+
+            print("✅ Friend removed successfully")
+
+            // Remove from local list immediately for better UX
+            friends.removeAll { $0.id == friend.id }
+
+            // Clear the pending removal
+            friendToRemove = nil
+
+            // Reload to ensure sync with database
+            await loadFriends()
+
+        } catch {
+            print("❌ Error removing friend: \(error)")
+            friendToRemove = nil
+            // Could show an error alert here if needed
         }
     }
 }

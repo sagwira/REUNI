@@ -174,9 +174,11 @@ struct FriendRequestRow: View {
                             .lineLimit(1)
                     }
 
-                    Text(timeAgo(from: request.createdAt))
-                        .font(.system(size: 12))
-                        .foregroundStyle(themeManager.secondaryText.opacity(0.7))
+                    RelativeTimestampView(
+                        date: request.createdAt,
+                        font: .system(size: 12),
+                        color: themeManager.secondaryText.opacity(0.7)
+                    )
                 }
 
                 Spacer()
@@ -270,24 +272,6 @@ struct FriendRequestRow: View {
             errorMessage = error.localizedDescription
             showError = true
             isProcessing = false
-        }
-    }
-
-    private func timeAgo(from date: Date) -> String {
-        let calendar = Calendar.current
-        let now = Date()
-        let components = calendar.dateComponents([.minute, .hour, .day, .weekOfYear], from: date, to: now)
-
-        if let week = components.weekOfYear, week > 0 {
-            return week == 1 ? "1 week ago" : "\(week) weeks ago"
-        } else if let day = components.day, day > 0 {
-            return day == 1 ? "1 day ago" : "\(day) days ago"
-        } else if let hour = components.hour, hour > 0 {
-            return hour == 1 ? "1 hour ago" : "\(hour) hours ago"
-        } else if let minute = components.minute, minute > 0 {
-            return minute == 1 ? "1 minute ago" : "\(minute) minutes ago"
-        } else {
-            return "Just now"
         }
     }
 }
