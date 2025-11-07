@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import Supabase
+import PostgREST
 
 struct MainContainerView: View {
     @Bindable var authManager: AuthenticationManager
@@ -13,26 +15,29 @@ struct MainContainerView: View {
     @State private var navigationCoordinator = NavigationCoordinator()
     @State private var notificationCount = 0
 
-    private let friendAPI = FriendAPIService()
+    private let offerService = OfferService()
 
     var body: some View {
         ZStack(alignment: .bottom) {
             // Main Content Area
-            Group {
-                switch navigationCoordinator.currentScreen {
-                case .home, .tickets: // tickets redirects to home
-                    HomeView(authManager: authManager, navigationCoordinator: navigationCoordinator, themeManager: themeManager)
-                        .environment(navigationCoordinator)
-                case .myListings:
-                    MyTicketsView(authManager: authManager, navigationCoordinator: navigationCoordinator, themeManager: themeManager)
-                        .environment(navigationCoordinator)
-                case .notifications:
-                    NotificationsView(authManager: authManager, themeManager: themeManager)
-                        .environment(navigationCoordinator)
-                case .profile, .account, .settings, .friends: // Legacy cases redirect to profile
-                    ProfileView(authManager: authManager, navigationCoordinator: navigationCoordinator, themeManager: themeManager)
-                        .environment(navigationCoordinator)
+            NavigationStack {
+                Group {
+                    switch navigationCoordinator.currentScreen {
+                    case .home, .tickets: // tickets redirects to home
+                        HomeView(authManager: authManager, navigationCoordinator: navigationCoordinator, themeManager: themeManager)
+                            .environment(navigationCoordinator)
+                    case .myListings:
+                        MyTicketsView(authManager: authManager, navigationCoordinator: navigationCoordinator, themeManager: themeManager)
+                            .environment(navigationCoordinator)
+                    case .notifications:
+                        NotificationsView(authManager: authManager, themeManager: themeManager)
+                            .environment(navigationCoordinator)
+                    case .profile, .account, .settings, .friends: // Legacy cases redirect to profile
+                        ProfileView(authManager: authManager, navigationCoordinator: navigationCoordinator, themeManager: themeManager)
+                            .environment(navigationCoordinator)
+                    }
                 }
+                .navigationBarHidden(true)
             }
             .padding(.bottom, 84) // Space for tab bar
 
@@ -42,16 +47,10 @@ struct MainContainerView: View {
                 themeManager: themeManager,
                 notificationCount: notificationCount
             )
-            .environment(authManager)
         }
         .ignoresSafeArea(.keyboard) // Keep tab bar visible when keyboard shows
         .task {
             await loadNotificationCount()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("FriendRequestsUpdated"))) { _ in
-            Task {
-                await loadNotificationCount()
-            }
         }
     }
 
@@ -62,8 +61,15 @@ struct MainContainerView: View {
         }
 
         do {
-            let requests = try await friendAPI.getPendingFriendRequests(userId: userId)
-            notificationCount = requests.count
+            // Fetch pending ticket offers
+            let response = try await supabase
+                .from("ticket_offers")
+                .select("id", head: true, count: .exact)
+                .eq("seller_id", value: userId.uuidString)
+                .eq("status", value: "pending")
+                .execute()
+
+            notificationCount = response.count ?? 0
         } catch {
             print("❌ Error loading notification count: \(error)")
             notificationCount = 0

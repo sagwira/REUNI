@@ -2,22 +2,23 @@
 //  NotificationsView.swift
 //  REUNI
 //
-//  Notifications hub - friend requests, purchases, system messages
+//  Notifications hub - ticket offers and notifications
 //
 
 import SwiftUI
+import Supabase
+import PostgREST
 
 struct NotificationsView: View {
     @Bindable var authManager: AuthenticationManager
     @Bindable var themeManager: ThemeManager
-    @State private var friendRequests: [FriendAPIService.FriendRequest] = []
-    @State private var notifications: [FriendAPIService.Notification] = []
+    @State private var ticketOffers: [TicketOffer] = []
     @State private var isLoading = true
 
-    private let friendAPI = FriendAPIService()
+    private let offerService = OfferService()
 
     var unreadCount: Int {
-        friendRequests.count + notifications.filter { !$0.isRead }.count
+        ticketOffers.filter { $0.status == "pending" }.count
     }
 
     var body: some View {
@@ -61,7 +62,7 @@ struct NotificationsView: View {
                                 .foregroundStyle(themeManager.secondaryText)
                             Spacer()
                         }
-                    } else if friendRequests.isEmpty && notifications.isEmpty {
+                    } else if ticketOffers.isEmpty {
                         // Empty state
                         VStack(spacing: 16) {
                             Spacer()
@@ -84,40 +85,22 @@ struct NotificationsView: View {
                     } else {
                         ScrollView {
                             LazyVStack(spacing: 0) {
-                                // Friend Requests Section
-                                if !friendRequests.isEmpty {
+                                // Ticket Offers Section (for sellers)
+                                if !ticketOffers.filter({ $0.status == "pending" }).isEmpty {
                                     VStack(alignment: .leading, spacing: 12) {
-                                        Text("Friend Requests")
+                                        Text("Offers on Your Tickets")
                                             .font(.system(size: 16, weight: .semibold))
                                             .foregroundStyle(themeManager.primaryText)
                                             .padding(.horizontal, 16)
                                             .padding(.top, 8)
 
-                                        ForEach(friendRequests) { request in
-                                            FriendRequestNotificationRow(
-                                                request: request,
+                                        ForEach(ticketOffers.filter { $0.status == "pending" }) { offer in
+                                            OfferNotificationRow(
+                                                offer: offer,
                                                 themeManager: themeManager,
-                                                onAccept: { acceptRequest(request) },
-                                                onDecline: { declineRequest(request) }
-                                            )
-                                        }
-                                    }
-                                    .padding(.bottom, 16)
-                                }
-
-                                // Friend Accepted Notifications Section
-                                if !notifications.isEmpty {
-                                    VStack(alignment: .leading, spacing: 12) {
-                                        ForEach(notifications.filter { $0.notificationType == "friend_accepted" }) { notification in
-                                            FriendAcceptedNotificationRow(
-                                                notification: notification,
-                                                themeManager: themeManager,
-                                                onTap: {
-                                                    Task {
-                                                        try? await friendAPI.markNotificationAsRead(notificationId: notification.notificationId)
-                                                        await loadNotifications()
-                                                    }
-                                                }
+                                                authManager: authManager,
+                                                onAccept: { acceptOffer(offer) },
+                                                onDecline: { declineOffer(offer) }
                                             )
                                         }
                                     }
@@ -136,11 +119,6 @@ struct NotificationsView: View {
             .refreshable {
                 await loadNotifications()
             }
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("FriendRequestsUpdated"))) { _ in
-                Task {
-                    await loadNotifications()
-                }
-            }
         }
     }
 
@@ -153,101 +131,105 @@ struct NotificationsView: View {
         }
 
         do {
-            // Load both friend requests and notifications in parallel
-            async let friendRequestsTask = friendAPI.getPendingFriendRequests(userId: userId)
-            async let notificationsTask = friendAPI.getUserNotifications(userId: userId)
-
-            friendRequests = try await friendRequestsTask
-            notifications = try await notificationsTask
-
+            // Load ticket offers
+            ticketOffers = try await fetchTicketOffers(userId: userId.uuidString)
             isLoading = false
         } catch {
             print("❌ Error loading notifications: \(error)")
-            friendRequests = []
-            notifications = []
+            ticketOffers = []
             isLoading = false
         }
     }
 
-    private func acceptRequest(_ request: FriendAPIService.FriendRequest) {
+    private func fetchTicketOffers(userId: String) async throws -> [TicketOffer] {
+        // Fetch offers from ticket_offers table where user is seller
+        let response = try await supabase
+            .from("ticket_offers")
+            .select("*")
+            .eq("seller_id", value: userId)
+            .eq("status", value: "pending")
+            .order("created_at", ascending: false)
+            .execute()
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let offers = try decoder.decode([TicketOffer].self, from: response.data)
+        return offers
+    }
+
+    private func acceptOffer(_ offer: TicketOffer) {
         Task {
             do {
-                try await friendAPI.acceptFriendRequest(requestId: request.requestId)
-                NotificationCenter.default.post(name: NSNotification.Name("FriendRequestsUpdated"), object: nil)
-                NotificationCenter.default.post(name: NSNotification.Name("FriendsListUpdated"), object: nil)
+                let session = try await supabase.auth.session
+                let authToken = session.accessToken
+                _ = try await offerService.respondToOffer(offerId: offer.id, action: "accept", authToken: authToken)
                 await loadNotifications()
             } catch {
-                print("❌ Error accepting friend request: \(error)")
+                print("❌ Error accepting offer: \(error)")
             }
         }
     }
 
-    private func declineRequest(_ request: FriendAPIService.FriendRequest) {
+    private func declineOffer(_ offer: TicketOffer) {
         Task {
             do {
-                try await friendAPI.rejectFriendRequest(requestId: request.requestId)
-                NotificationCenter.default.post(name: NSNotification.Name("FriendRequestsUpdated"), object: nil)
+                let session = try await supabase.auth.session
+                let authToken = session.accessToken
+                _ = try await offerService.respondToOffer(offerId: offer.id, action: "decline", authToken: authToken)
                 await loadNotifications()
             } catch {
-                print("❌ Error declining friend request: \(error)")
+                print("❌ Error declining offer: \(error)")
             }
         }
     }
 }
 
-// MARK: - Friend Request Notification Row
-struct FriendRequestNotificationRow: View {
-    let request: FriendAPIService.FriendRequest
+// MARK: - Offer Notification Row
+struct OfferNotificationRow: View {
+    let offer: TicketOffer
     @Bindable var themeManager: ThemeManager
+    @Bindable var authManager: AuthenticationManager
     let onAccept: () -> Void
     let onDecline: () -> Void
 
     @State private var isAccepting = false
     @State private var isDeclining = false
+    @State private var ticketTitle: String = "Ticket"
 
     var body: some View {
         HStack(spacing: 12) {
-            // Profile Picture
-            if let urlString = request.senderProfilePictureUrl, let url = URL(string: urlString) {
-                AsyncImage(url: url) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                } placeholder: {
-                    Circle()
-                        .fill(themeManager.cardBackground)
-                        .overlay(
-                            Image(systemName: "person.fill")
-                                .foregroundStyle(themeManager.secondaryText)
-                        )
-                }
-                .frame(width: 50, height: 50)
-                .clipShape(Circle())
-            } else {
+            // Offer Icon
+            ZStack {
                 Circle()
-                    .fill(themeManager.cardBackground)
+                    .fill(Color.green.opacity(0.2))
                     .frame(width: 50, height: 50)
-                    .overlay(
-                        Image(systemName: "person.fill")
-                            .foregroundStyle(themeManager.secondaryText)
-                    )
+
+                Image(systemName: "tag.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(Color.green)
             }
 
             // Info
             VStack(alignment: .leading, spacing: 4) {
-                Text("@\(request.senderUsername)")
+                Text("New Offer: £\(String(format: "%.0f", offer.offer_amount))")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(themeManager.primaryText)
 
-                Text("wants to be friends")
-                    .font(.system(size: 14))
-                    .foregroundStyle(themeManager.secondaryText)
+                if let buyerUsername = offer.buyer_username {
+                    Text("From @\(buyerUsername)")
+                        .font(.system(size: 14))
+                        .foregroundStyle(themeManager.secondaryText)
+                }
 
-                RelativeTimestampView(
-                    date: request.createdAt,
-                    font: .system(size: 12),
-                    color: themeManager.secondaryText.opacity(0.7)
-                )
+                if let discountPercentage = offer.discount_percentage {
+                    Text("\(discountPercentage)% off • Listed at £\(String(format: "%.0f", offer.original_price))")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.green)
+                }
+
+                Text(ticketTitle)
+                    .font(.system(size: 12))
+                    .foregroundStyle(themeManager.secondaryText.opacity(0.7))
             }
 
             Spacer()
@@ -282,13 +264,7 @@ struct FriendRequestNotificationRow: View {
                         .frame(width: 36, height: 36)
                         .background(
                             Circle()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Color.red, Color.red.opacity(0.85)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
+                                .fill(Color.green)
                         )
                 }
                 .disabled(isAccepting || isDeclining)
@@ -300,60 +276,32 @@ struct FriendRequestNotificationRow: View {
         .cornerRadius(12)
         .padding(.horizontal, 16)
         .padding(.vertical, 4)
-    }
-}
-
-// MARK: - Friend Accepted Notification Row
-struct FriendAcceptedNotificationRow: View {
-    let notification: FriendAPIService.Notification
-    @Bindable var themeManager: ThemeManager
-    let onTap: () -> Void
-
-    var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 12) {
-                // Profile Picture
-                UserAvatarView(
-                    profilePictureUrl: notification.friendProfilePictureUrl,
-                    name: notification.friendUsername ?? "Friend",
-                    size: 50
-                )
-
-                // Info
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 4) {
-                        Text("@\(notification.friendUsername ?? "Friend")")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(themeManager.primaryText)
-
-                        Text("is your friend now")
-                            .font(.system(size: 14))
-                            .foregroundStyle(themeManager.secondaryText)
-                    }
-
-                    RelativeTimestampView(
-                        date: notification.createdAt,
-                        font: .system(size: 12),
-                        color: themeManager.secondaryText.opacity(0.7)
-                    )
-                }
-
-                Spacer()
-
-                // Unread indicator
-                if !notification.isRead {
-                    Circle()
-                        .fill(Color.red)
-                        .frame(width: 8, height: 8)
-                }
-            }
-            .padding(16)
-            .background(notification.isRead ? themeManager.cardBackground : themeManager.cardBackground.opacity(0.95))
-            .cornerRadius(12)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 4)
+        .task {
+            await fetchTicketTitle()
         }
-        .buttonStyle(.plain)
+    }
+
+    private func fetchTicketTitle() async {
+        do {
+            let response = try await supabase
+                .from("user_tickets")
+                .select("event_name")
+                .eq("id", value: offer.ticket_id)
+                .single()
+                .execute()
+
+            struct TicketResponse: Codable {
+                let event_name: String
+            }
+
+            let decoder = JSONDecoder()
+            let ticket = try decoder.decode(TicketResponse.self, from: response.data)
+            await MainActor.run {
+                ticketTitle = ticket.event_name
+            }
+        } catch {
+            print("❌ Error fetching ticket title: \(error)")
+        }
     }
 }
 
