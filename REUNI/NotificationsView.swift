@@ -195,19 +195,16 @@ struct OfferNotificationRow: View {
     @State private var isAccepting = false
     @State private var isDeclining = false
     @State private var ticketTitle: String = "Ticket"
+    @State private var buyerProfilePictureUrl: String?
 
     var body: some View {
         HStack(spacing: 12) {
-            // Offer Icon
-            ZStack {
-                Circle()
-                    .fill(Color.green.opacity(0.2))
-                    .frame(width: 50, height: 50)
-
-                Image(systemName: "tag.fill")
-                    .font(.system(size: 20))
-                    .foregroundStyle(Color.green)
-            }
+            // Buyer Profile Picture
+            UserAvatarView(
+                profilePictureUrl: buyerProfilePictureUrl,
+                name: offer.buyer_username ?? "User",
+                size: 50
+            )
 
             // Info
             VStack(alignment: .leading, spacing: 4) {
@@ -219,12 +216,6 @@ struct OfferNotificationRow: View {
                     Text("From @\(buyerUsername)")
                         .font(.system(size: 14))
                         .foregroundStyle(themeManager.secondaryText)
-                }
-
-                if let discountPercentage = offer.discount_percentage {
-                    Text("\(discountPercentage)% off • Listed at £\(String(format: "%.0f", offer.original_price))")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.green)
                 }
 
                 Text(ticketTitle)
@@ -278,6 +269,7 @@ struct OfferNotificationRow: View {
         .padding(.vertical, 4)
         .task {
             await fetchTicketTitle()
+            await fetchBuyerProfile()
         }
     }
 
@@ -301,6 +293,29 @@ struct OfferNotificationRow: View {
             }
         } catch {
             print("❌ Error fetching ticket title: \(error)")
+        }
+    }
+
+    private func fetchBuyerProfile() async {
+        do {
+            let response = try await supabase
+                .from("profiles")
+                .select("profile_picture_url")
+                .eq("id", value: offer.buyer_id)
+                .single()
+                .execute()
+
+            struct ProfileResponse: Codable {
+                let profile_picture_url: String?
+            }
+
+            let decoder = JSONDecoder()
+            let profile = try decoder.decode(ProfileResponse.self, from: response.data)
+            await MainActor.run {
+                buyerProfilePictureUrl = profile.profile_picture_url
+            }
+        } catch {
+            print("❌ Error fetching buyer profile: \(error)")
         }
     }
 }
