@@ -17,6 +17,10 @@ fatsoma-scraper-api/.env.local
 **/*_secrets.json
 **/*_config.json
 
+# Documentation files (may contain sensitive user data, UUIDs, test data)
+*.md
+!README.md
+
 # ============================================
 # LOGS & RUNTIME FILES
 # ============================================
