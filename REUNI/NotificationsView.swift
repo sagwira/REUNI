@@ -152,7 +152,7 @@ struct NotificationsView: View {
             .execute()
 
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        // No key decoding strategy needed - model properties already match DB column names (snake_case)
         let offers = try decoder.decode([TicketOffer].self, from: response.data)
         return offers
     }
