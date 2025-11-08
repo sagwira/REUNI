@@ -93,7 +93,9 @@ serve(async (req) => {
     if (action === "accept") {
       console.log(`✅ Accepting offer ${offer_id} for £${offer.offer_amount}`);
 
-      // Update offer status
+      // Update offer status to "accepted"
+      // NOTE: Ticket stays "available" - it's only reserved when buyer initiates payment
+      // This allows other buyers to still make offers or purchase at full price
       const { error: updateOfferError } = await supabase
         .from("ticket_offers")
         .update({
@@ -107,48 +109,6 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: "Failed to accept offer" }), { status: 500 });
       }
 
-      // Reserve ticket for buyer (24 hours to pay)
-      console.log(`🔄 Attempting to reserve ticket ${offer.ticket_id} for buyer ${offer.buyer_id}`);
-
-      const { data: updatedTicket, error: updateTicketError } = await supabase
-        .from("user_tickets")
-        .update({
-          sale_status: "pending_payment",
-          buyer_id: offer.buyer_id,
-          // Store the offer ID and buyer ID for payment processing
-        })
-        .eq("id", offer.ticket_id)
-        .select()
-        .single();
-
-      if (updateTicketError) {
-        console.error("Failed to reserve ticket - Error details:", JSON.stringify(updateTicketError));
-        console.error("Ticket ID:", offer.ticket_id);
-        console.error("Buyer ID:", offer.buyer_id);
-
-        // Rollback offer acceptance
-        await supabase
-          .from("ticket_offers")
-          .update({ status: "pending" })
-          .eq("id", offer_id);
-
-        return new Response(JSON.stringify({
-          error: "Failed to reserve ticket",
-          details: updateTicketError.message,
-          hint: updateTicketError.hint,
-        }), { status: 500 });
-      }
-
-      console.log(`✅ Ticket reserved successfully:`, updatedTicket);
-
-      // Decline all other pending offers on this ticket
-      await supabase
-        .from("ticket_offers")
-        .update({ status: "declined", declined_at: new Date().toISOString() })
-        .eq("ticket_id", offer.ticket_id)
-        .eq("status", "pending")
-        .neq("id", offer_id);
-
       // TODO: Send push notification to buyer
       // await sendPushNotification(offer.buyer_id, {
       //   type: "offer_accepted",
@@ -157,11 +117,11 @@ serve(async (req) => {
       //   data: { offer_id, ticket_id: offer.ticket_id },
       // });
 
-      console.log(`✅ Offer accepted successfully! Buyer has 24 hours to pay.`);
+      console.log(`✅ Offer accepted! Buyer has 24 hours to pay. Ticket remains available for others.`);
 
       return new Response(JSON.stringify({
         success: true,
-        message: "Offer accepted! The buyer has 24 hours to complete payment.",
+        message: "Offer accepted! The buyer has 24 hours to complete payment. The ticket remains available until payment is initiated.",
         offer: {
           ...offer,
           status: "accepted",
