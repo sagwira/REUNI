@@ -61,15 +61,27 @@ struct MainContainerView: View {
         }
 
         do {
-            // Fetch pending ticket offers
-            let response = try await supabase
+            // Fetch pending ticket offers (as seller)
+            let pendingOffersResponse = try await supabase
                 .from("ticket_offers")
                 .select("id", head: true, count: .exact)
                 .eq("seller_id", value: userId.uuidString)
                 .eq("status", value: "pending")
                 .execute()
 
-            notificationCount = response.count ?? 0
+            let pendingCount = pendingOffersResponse.count ?? 0
+
+            // Fetch accepted offers (as buyer)
+            let acceptedOffersResponse = try await supabase
+                .from("ticket_offers")
+                .select("id", head: true, count: .exact)
+                .eq("buyer_id", value: userId.uuidString)
+                .eq("status", value: "accepted")
+                .execute()
+
+            let acceptedCount = acceptedOffersResponse.count ?? 0
+
+            notificationCount = pendingCount + acceptedCount
         } catch {
             print("❌ Error loading notification count: \(error)")
             notificationCount = 0

@@ -12,13 +12,14 @@ import PostgREST
 struct NotificationsView: View {
     @Bindable var authManager: AuthenticationManager
     @Bindable var themeManager: ThemeManager
-    @State private var ticketOffers: [TicketOffer] = []
+    @State private var ticketOffers: [TicketOffer] = [] // Offers on tickets I'm selling (pending)
+    @State private var acceptedOffers: [TicketOffer] = [] // My offers that were accepted (buyer)
     @State private var isLoading = true
 
     private let offerService = OfferService()
 
     var unreadCount: Int {
-        ticketOffers.filter { $0.status == "pending" }.count
+        ticketOffers.filter { $0.status == "pending" }.count + acceptedOffers.count
     }
 
     var body: some View {
@@ -62,7 +63,7 @@ struct NotificationsView: View {
                                 .foregroundStyle(themeManager.secondaryText)
                             Spacer()
                         }
-                    } else if ticketOffers.isEmpty {
+                    } else if ticketOffers.isEmpty && acceptedOffers.isEmpty {
                         // Empty state
                         VStack(spacing: 16) {
                             Spacer()
@@ -106,6 +107,26 @@ struct NotificationsView: View {
                                     }
                                     .padding(.bottom, 16)
                                 }
+
+                                // Accepted Offers Section (for buyers)
+                                if !acceptedOffers.isEmpty {
+                                    VStack(alignment: .leading, spacing: 12) {
+                                        Text("Your Accepted Offers")
+                                            .font(.system(size: 16, weight: .semibold))
+                                            .foregroundStyle(themeManager.primaryText)
+                                            .padding(.horizontal, 16)
+                                            .padding(.top, 8)
+
+                                        ForEach(acceptedOffers) { offer in
+                                            AcceptedOfferRow(
+                                                offer: offer,
+                                                themeManager: themeManager,
+                                                authManager: authManager
+                                            )
+                                        }
+                                    }
+                                    .padding(.bottom, 16)
+                                }
                             }
                             .padding(.top, 8)
                         }
@@ -131,12 +152,17 @@ struct NotificationsView: View {
         }
 
         do {
-            // Load ticket offers
+            // Load ticket offers (as seller - pending offers on my tickets)
             ticketOffers = try await fetchTicketOffers(userId: userId.uuidString)
+
+            // Load accepted offers (as buyer - my offers that were accepted)
+            acceptedOffers = try await fetchAcceptedOffers(userId: userId.uuidString)
+
             isLoading = false
         } catch {
             print("❌ Error loading notifications: \(error)")
             ticketOffers = []
+            acceptedOffers = []
             isLoading = false
         }
     }
@@ -153,6 +179,21 @@ struct NotificationsView: View {
 
         let decoder = JSONDecoder()
         // No key decoding strategy needed - model properties already match DB column names (snake_case)
+        let offers = try decoder.decode([TicketOffer].self, from: response.data)
+        return offers
+    }
+
+    private func fetchAcceptedOffers(userId: String) async throws -> [TicketOffer] {
+        // Fetch accepted offers where user is buyer
+        let response = try await supabase
+            .from("ticket_offers")
+            .select("*")
+            .eq("buyer_id", value: userId)
+            .eq("status", value: "accepted")
+            .order("accepted_at", ascending: false)
+            .execute()
+
+        let decoder = JSONDecoder()
         let offers = try decoder.decode([TicketOffer].self, from: response.data)
         return offers
     }
@@ -317,6 +358,181 @@ struct OfferNotificationRow: View {
         } catch {
             print("❌ Error fetching buyer profile: \(error)")
         }
+    }
+}
+
+// MARK: - Accepted Offer Row (For Buyers)
+struct AcceptedOfferRow: View {
+    let offer: TicketOffer
+    @Bindable var themeManager: ThemeManager
+    @Bindable var authManager: AuthenticationManager
+
+    @State private var ticketTitle: String = "Ticket"
+    @State private var sellerProfilePictureUrl: String?
+    @State private var sellerUsername: String = "Seller"
+    @State private var showPayment = false
+    @State private var event: Event?
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Seller Profile Picture
+            UserAvatarView(
+                profilePictureUrl: sellerProfilePictureUrl,
+                name: sellerUsername,
+                size: 50
+            )
+
+            // Info
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Offer Accepted: £\(String(format: "%.2f", offer.offer_amount))")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color.green)
+
+                Text("From @\(sellerUsername)")
+                    .font(.system(size: 14))
+                    .foregroundStyle(themeManager.secondaryText)
+
+                Text(ticketTitle)
+                    .font(.system(size: 12))
+                    .foregroundStyle(themeManager.secondaryText.opacity(0.7))
+            }
+
+            Spacer()
+
+            // Buy Now Button
+            Button(action: {
+                showPayment = true
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "creditcard.fill")
+                        .font(.system(size: 14))
+                    Text("Buy Now")
+                        .font(.system(size: 15, weight: .bold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(
+                    LinearGradient(
+                        colors: [Color.green, Color.green.opacity(0.85)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .cornerRadius(10)
+            }
+        }
+        .padding(16)
+        .background(themeManager.cardBackground)
+        .cornerRadius(12)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 4)
+        .task {
+            await fetchTicketAndSellerInfo()
+        }
+        .fullScreenCover(isPresented: $showPayment) {
+            if let event = event {
+                PaymentView(
+                    authManager: authManager,
+                    event: event,
+                    totalAmount: offer.offer_amount, // Use accepted offer amount, not original price
+                    onPaymentComplete: { transactionId in
+                        print("✅ Payment completed for accepted offer: \(transactionId)")
+                        // Offer will be marked as completed by webhook
+                    }
+                )
+            }
+        }
+    }
+
+    private func fetchTicketAndSellerInfo() async {
+        // Fetch ticket details
+        do {
+            let ticketResponse = try await supabase
+                .from("user_tickets")
+                .select("*")
+                .eq("id", value: offer.ticket_id)
+                .single()
+                .execute()
+
+            struct TicketData: Codable {
+                let id: String
+                let event_name: String
+                let event_date: String?
+                let event_location: String?
+                let price_per_ticket: Double?
+                let total_price: Double?
+                let user_id: String
+                let ticket_type: String?
+                let last_entry: String?
+            }
+
+            let decoder = JSONDecoder()
+            let ticket = try decoder.decode(TicketData.self, from: ticketResponse.data)
+
+            await MainActor.run {
+                ticketTitle = ticket.event_name
+
+                // Create Event object for PaymentView
+                event = Event(
+                    id: UUID(uuidString: ticket.id) ?? UUID(),
+                    title: ticket.event_name,
+                    userId: UUID(uuidString: ticket.user_id),
+                    organizerId: UUID(uuidString: offer.seller_id),
+                    organizerUsername: sellerUsername,
+                    organizerProfileUrl: sellerProfilePictureUrl,
+                    organizerVerified: false,
+                    organizerUniversity: nil,
+                    organizerDegree: nil,
+                    eventDate: parseDate(ticket.event_date),
+                    lastEntry: parseDate(ticket.last_entry),
+                    price: offer.offer_amount, // Use accepted offer amount
+                    originalPrice: ticket.total_price ?? ticket.price_per_ticket ?? offer.original_price,
+                    availableTickets: 1,
+                    city: ticket.event_location ?? "",
+                    ageRestriction: 18,
+                    ticketSource: "Offer",
+                    eventImageUrl: nil,
+                    ticketImageUrl: nil,
+                    createdAt: Date(),
+                    ticketType: ticket.ticket_type,
+                    lastEntryType: nil,
+                    lastEntryLabel: nil
+                )
+            }
+        } catch {
+            print("❌ Error fetching ticket info: \(error)")
+        }
+
+        // Fetch seller profile
+        do {
+            let profileResponse = try await supabase
+                .from("profiles")
+                .select("username, profile_picture_url")
+                .eq("id", value: offer.seller_id)
+                .single()
+                .execute()
+
+            struct SellerProfile: Codable {
+                let username: String
+                let profile_picture_url: String?
+            }
+
+            let decoder = JSONDecoder()
+            let profile = try decoder.decode(SellerProfile.self, from: profileResponse.data)
+            await MainActor.run {
+                sellerUsername = profile.username
+                sellerProfilePictureUrl = profile.profile_picture_url
+            }
+        } catch {
+            print("❌ Error fetching seller profile: \(error)")
+        }
+    }
+
+    private func parseDate(_ dateString: String?) -> Date {
+        guard let dateString = dateString else { return Date() }
+        let formatter = ISO8601DateFormatter()
+        return formatter.date(from: dateString) ?? Date()
     }
 }
 
