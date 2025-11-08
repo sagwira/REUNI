@@ -194,8 +194,25 @@ struct NotificationsView: View {
             .execute()
 
         let decoder = JSONDecoder()
-        let offers = try decoder.decode([TicketOffer].self, from: response.data)
-        return offers
+        let allOffers = try decoder.decode([TicketOffer].self, from: response.data)
+
+        // Filter out expired offers (older than 12 hours from creation)
+        let now = Date()
+        let filteredOffers = allOffers.filter { offer in
+            guard let expiresAtString = offer.expires_at,
+                  let expiresAt = parseISO8601Date(expiresAtString) else {
+                return true // Keep if we can't parse date
+            }
+            return expiresAt > now // Only show non-expired offers
+        }
+
+        return filteredOffers
+    }
+
+    private func parseISO8601Date(_ dateString: String) -> Date? {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.date(from: dateString) ?? ISO8601DateFormatter().date(from: dateString)
     }
 
     private func acceptOffer(_ offer: TicketOffer) {

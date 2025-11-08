@@ -97,8 +97,43 @@ struct MyListingsView: View {
     @State private var realtimeTask: Task<Void, Never>?
     @State private var realtimeChannel: RealtimeChannelV2?
 
+    // Computed stats
+    private var activeListingsCount: Int {
+        myTickets.count
+    }
+
+    private var totalListingsValue: Double {
+        myTickets.reduce(0) { $0 + (($1.pricePerTicket ?? 0) * Double($1.quantity)) }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
+            // Stats Header (only if has listings)
+            if !myTickets.isEmpty {
+                HStack(spacing: 16) {
+                    // Active Listings Stat
+                    StatCard(
+                        icon: "ticket.fill",
+                        value: "\(activeListingsCount)",
+                        label: activeListingsCount == 1 ? "Active Listing" : "Active Listings",
+                        color: themeManager.accentColor,
+                        themeManager: themeManager
+                    )
+
+                    // Total Value Stat
+                    StatCard(
+                        icon: "sterlingsign.circle.fill",
+                        value: "£\(String(format: "%.0f", totalListingsValue))",
+                        label: "Total Value",
+                        color: .green,
+                        themeManager: themeManager
+                    )
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 16)
+                .background(themeManager.backgroundColor)
+            }
+
             // Tickets List
             if isLoading {
                 VStack(spacing: 16) {
@@ -134,8 +169,10 @@ struct MyListingsView: View {
                     LazyVStack(spacing: 16) {
                         ForEach(myTickets) { ticket in
                             TicketCard(
+                                authManager: authManager,
                                 event: mapTicketToEvent(ticket),
                                 currentUserId: authManager.currentUserId,
+                                saleStatus: ticket.saleStatus,
                                 onDelete: {
                                     deleteTicket(ticket)
                                 }
@@ -203,7 +240,7 @@ struct MyListingsView: View {
     private func mapTicketToEvent(_ ticket: UserTicket) -> Event {
         // Parse date from string to Date
         let dateFormatter = ISO8601DateFormatter()
-        let eventDate = dateFormatter.date(from: ticket.eventDate) ?? Date()
+        let eventDate = dateFormatter.date(from: ticket.eventDate ?? "") ?? Date()
 
         // For UserTicket, we don't have separate last_entry, so use event date
         let lastEntry = eventDate
@@ -215,7 +252,7 @@ struct MyListingsView: View {
 
         return Event(
             id: ticketId,
-            title: ticket.eventName,
+            title: ticket.eventName ?? "Unknown Event",
             userId: userId,
             organizerId: organizerId,
             organizerUsername: ticket.sellerUsername ?? "Unknown User",
@@ -225,7 +262,7 @@ struct MyListingsView: View {
             organizerDegree: nil,
             eventDate: eventDate,
             lastEntry: lastEntry,
-            price: ticket.pricePerTicket,
+            price: ticket.totalPrice ?? ticket.pricePerTicket ?? 0.0,  // Use total_price first (database has this)
             originalPrice: nil,
             availableTickets: ticket.quantity,
             city: ticket.eventLocation,
@@ -241,7 +278,7 @@ struct MyListingsView: View {
     }
 
     private func deleteTicket(_ ticket: UserTicket) {
-        print("🗑️ Deleting ticket: \(ticket.eventName) (ID: \(ticket.id))")
+        print("🗑️ Deleting ticket: \(ticket.eventName ?? "Unknown") (ID: \(ticket.id))")
 
         // Remove from local array first for instant UI feedback
         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
@@ -356,10 +393,17 @@ struct MyPurchasesView: View {
                 ScrollView {
                     LazyVStack(spacing: 16) {
                         ForEach(myPurchases) { ticket in
-                            TicketCard(
-                                event: mapTicketToEvent(ticket),
-                                currentUserId: authManager.currentUserId
-                            )
+                            NavigationLink(destination: TicketDetailView(ticket: ticket)) {
+                                TicketCard(
+                                    authManager: authManager,
+                                    event: mapTicketToEvent(ticket),
+                                    currentUserId: authManager.currentUserId,
+                                    saleStatus: ticket.saleStatus,
+                                    disableTapGesture: true,  // Allow NavigationLink to work
+                                    showViewTicketButton: true  // Show "View Ticket" button
+                                )
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                     .padding(16)
@@ -383,17 +427,26 @@ struct MyPurchasesView: View {
         isLoading = true
         print("🔄 [MyPurchasesView] Loading my purchases for user: \(userId.uuidString)")
 
-        // TODO: Implement purchase API call when purchase functionality is added
-        // For now, just show empty state
-        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds delay to show loading state
-        myPurchases = []
-        isLoading = false
+        APIService.shared.fetchPurchasedTickets(userId: userId.uuidString) { result in
+            DispatchQueue.main.async {
+                isLoading = false
+
+                switch result {
+                case .success(let fetchedTickets):
+                    self.myPurchases = fetchedTickets
+                    print("✅ [MyPurchasesView] Loaded \(fetchedTickets.count) purchased tickets")
+                case .failure(let error):
+                    print("❌ [MyPurchasesView] Error loading purchased tickets: \(error)")
+                    self.myPurchases = []
+                }
+            }
+        }
     }
 
     // Helper function to map UserTicket to Event
     private func mapTicketToEvent(_ ticket: UserTicket) -> Event {
         let dateFormatter = ISO8601DateFormatter()
-        let eventDate = dateFormatter.date(from: ticket.eventDate) ?? Date()
+        let eventDate = dateFormatter.date(from: ticket.eventDate ?? "") ?? Date()
         let lastEntry = eventDate
         let ticketId = UUID(uuidString: ticket.id) ?? UUID()
         let userId = UUID(uuidString: ticket.userId)
@@ -401,7 +454,7 @@ struct MyPurchasesView: View {
 
         return Event(
             id: ticketId,
-            title: ticket.eventName,
+            title: ticket.eventName ?? "Unknown Event",
             userId: userId,
             organizerId: organizerId,
             organizerUsername: ticket.sellerUsername ?? "Unknown User",
@@ -411,7 +464,7 @@ struct MyPurchasesView: View {
             organizerDegree: nil,
             eventDate: eventDate,
             lastEntry: lastEntry,
-            price: ticket.pricePerTicket,
+            price: ticket.totalPrice ?? ticket.pricePerTicket ?? 0.0,  // Use total_price first (database has this)
             originalPrice: nil,
             availableTickets: ticket.quantity,
             city: ticket.eventLocation,
@@ -423,6 +476,47 @@ struct MyPurchasesView: View {
             ticketType: ticket.ticketType,
             lastEntryType: ticket.lastEntryType,
             lastEntryLabel: ticket.lastEntryLabel
+        )
+    }
+}
+
+// MARK: - Stat Card Component
+struct StatCard: View {
+    let icon: String
+    let value: String
+    let label: String
+    let color: Color
+    let themeManager: ThemeManager
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Icon
+            Image(systemName: icon)
+                .font(.system(size: 20))
+                .foregroundStyle(color)
+                .frame(width: 36, height: 36)
+                .background(color.opacity(0.15))
+                .cornerRadius(8)
+
+            // Text
+            VStack(alignment: .leading, spacing: 2) {
+                Text(value)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(themeManager.primaryText)
+
+                Text(label)
+                    .font(.system(size: 12))
+                    .foregroundStyle(themeManager.secondaryText)
+            }
+
+            Spacer()
+        }
+        .padding(12)
+        .background(themeManager.cardBackground)
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(themeManager.borderColor, lineWidth: 1)
         )
     }
 }

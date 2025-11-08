@@ -12,6 +12,60 @@
       "page_id": "29b90c27-025d-42eb-a296-3b6c6bf98899",
       "profile_url": "https://www.fatsoma.com/p/sundaycell",
       "notes": "Nottingham's Biggest Sunday Night - weekly recurring events at The Cell nightclub"
+    },
+    {
+      "name": "Stealth",
+      "vanity_url": "stealth",
+      "profile_url": "https://www.fatsoma.com/p/stealth",
+      "notes": "Nottingham nightclub - priority venue"
+    },
+    {
+      "name": "Oz Bar",
+      "vanity_url": "oz-bar",
+      "profile_url": "https://www.fatsoma.com/p/oz-bar",
+      "notes": "Priority venue"
+    },
+    {
+      "name": "House of Disco",
+      "vanity_url": "house-of-disco",
+      "profile_url": "https://www.fatsoma.com/p/house-of-disco",
+      "notes": "Priority venue"
+    },
+    {
+      "name": "Cucamara",
+      "vanity_url": "cucamara",
+      "profile_url": "https://www.fatsoma.com/p/cucamara",
+      "notes": "Priority venue"
+    },
+    {
+      "name": "Bodega",
+      "vanity_url": "bodega",
+      "profile_url": "https://www.fatsoma.com/p/bodega",
+      "notes": "Nottingham venue - priority"
+    },
+    {
+      "name": "Rock City",
+      "vanity_url": "rock-city",
+      "profile_url": "https://www.fatsoma.com/p/rock-city",
+      "notes": "Major Nottingham venue - priority"
+    },
+    {
+      "name": "Unit 13",
+      "vanity_url": "unit-13",
+      "profile_url": "https://www.fatsoma.com/p/unit-13",
+      "notes": "Priority venue"
+    },
+    {
+      "name": "The Mixologist",
+      "vanity_url": "the-mixologist",
+      "profile_url": "https://www.fatsoma.com/p/the-mixologist",
+      "notes": "Priority venue"
+    },
+    {
+      "name": "Outwork Events",
+      "vanity_url": "outwork-events",
+      "profile_url": "https://www.fatsoma.com/p/outwork-events",
+      "notes": "Event organizer - priority"
     }
   ],
   "manual_event_uuids": [

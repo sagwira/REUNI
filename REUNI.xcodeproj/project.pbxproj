@@ -13,6 +13,8 @@
 		246FEF842E9832BB00F0E570 /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = 246FEF832E9832BB00F0E570 /* Realtime */; };
 		246FEF862E9832BB00F0E570 /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = 246FEF852E9832BB00F0E570 /* Storage */; };
 		246FEF8A2E98545E00F0E570 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 246FEF892E98545E00F0E570 /* Supabase */; };
+		24A3DD6C2EB786AF007C2183 /* SECURITY_COMPLETION.md in Resources */ = {isa = PBXBuildFile; fileRef = 24A3DD6B2EB786AF007C2183 /* SECURITY_COMPLETION.md */; };
+		24A3E0CF2EBAD183007C2183 /* StripePaymentSheet in Frameworks */ = {isa = PBXBuildFile; productRef = 24A3E0CE2EBAD183007C2183 /* StripePaymentSheet */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -36,6 +38,8 @@
 		246FEF1B2E969D9900F0E570 /* REUNI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = REUNI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		246FEF2C2E969D9A00F0E570 /* REUNITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = REUNITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		246FEF362E969D9A00F0E570 /* REUNIUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = REUNIUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		24A3DD6B2EB786AF007C2183 /* SECURITY_COMPLETION.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = SECURITY_COMPLETION.md; sourceTree = "<group>"; };
+		24CONFIGF12E969D9900F0E570 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -80,6 +84,7 @@
 				246FEF7E2E9832BB00F0E570 /* Auth in Frameworks */,
 				246FEF862E9832BB00F0E570 /* Storage in Frameworks */,
 				246FEF842E9832BB00F0E570 /* Realtime in Frameworks */,
+				24A3E0CF2EBAD183007C2183 /* StripePaymentSheet in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -103,6 +108,8 @@
 		246FEF122E969D9900F0E570 = {
 			isa = PBXGroup;
 			children = (
+				24CONFIGF12E969D9900F0E570 /* Config.xcconfig */,
+				24A3DD6B2EB786AF007C2183 /* SECURITY_COMPLETION.md */,
 				246FEF1D2E969D9900F0E570 /* REUNI */,
 				246FEF2F2E969D9A00F0E570 /* REUNITests */,
 				246FEF392E969D9A00F0E570 /* REUNIUITests */,
@@ -146,6 +153,7 @@
 				246FEF832E9832BB00F0E570 /* Realtime */,
 				246FEF852E9832BB00F0E570 /* Storage */,
 				246FEF892E98545E00F0E570 /* Supabase */,
+				24A3E0CE2EBAD183007C2183 /* StripePaymentSheet */,
 			);
 			productName = REUNI;
 			productReference = 246FEF1B2E969D9900F0E570 /* REUNI.app */;
@@ -231,6 +239,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				246FEF7C2E9832BB00F0E570 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				24A3E0C32EBAD183007C2183 /* XCRemoteSwiftPackageReference "stripe-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 246FEF1C2E969D9900F0E570 /* Products */;
@@ -249,6 +258,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				24A3DD6C2EB786AF007C2183 /* SECURITY_COMPLETION.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -273,7 +283,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-			);
+			
+);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		246FEF282E969D9A00F0E570 /* Sources */ = {
@@ -308,6 +319,7 @@
 /* Begin XCBuildConfiguration section */
 		246FEF402E969D9A00F0E570 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 24CONFIGF12E969D9900F0E570 /* Config.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -342,6 +354,7 @@
 		};
 		246FEF412E969D9A00F0E570 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 24CONFIGF12E969D9900F0E570 /* Config.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -629,6 +642,14 @@
 				minimumVersion = 2.5.1;
 			};
 		};
+		24A3E0C32EBAD183007C2183 /* XCRemoteSwiftPackageReference "stripe-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stripe/stripe-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 25.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -661,6 +682,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 246FEF7C2E9832BB00F0E570 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
+		};
+		24A3E0CE2EBAD183007C2183 /* StripePaymentSheet */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 24A3E0C32EBAD183007C2183 /* XCRemoteSwiftPackageReference "stripe-ios" */;
+			productName = StripePaymentSheet;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

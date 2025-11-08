@@ -116,3 +116,68 @@ extension FatsomaTicket: Equatable {
         lhs.id == rhs.id
     }
 }
+
+// MARK: - Event Section for Date Grouping
+struct EventSection: Identifiable {
+    let id = UUID()
+    let date: Date
+    let events: [FatsomaEvent]
+
+    // Formatted date header: "Monday, November 3"
+    var dateHeader: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, MMMM d"
+        return formatter.string(from: date)
+    }
+
+    // Relative date: "Today", "Tomorrow", or full date
+    var relativeDateHeader: String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) {
+            return "Today - \(dateHeader)"
+        } else if calendar.isDateInTomorrow(date) {
+            return "Tomorrow - \(dateHeader)"
+        } else {
+            return dateHeader
+        }
+    }
+}
+
+// MARK: - Helper Extension for Date Grouping
+extension Array where Element == FatsomaEvent {
+    func groupedByDate() -> [EventSection] {
+        let calendar = Calendar.current
+
+        // Group events by calendar date
+        let grouped = Dictionary(grouping: self) { event -> Date in
+            // Try multiple date formats to parse event.date
+            // Format 1: Full ISO8601 with time (from database): "2025-11-03T22:00:00Z"
+            let iso8601Full = ISO8601DateFormatter()
+            if let parsedDate = iso8601Full.date(from: event.date) {
+                return calendar.startOfDay(for: parsedDate)
+            }
+
+            // Format 2: Date only: "2025-11-03"
+            let iso8601Date = ISO8601DateFormatter()
+            iso8601Date.formatOptions = [.withFullDate]
+            if let parsedDate = iso8601Date.date(from: event.date) {
+                return calendar.startOfDay(for: parsedDate)
+            }
+
+            // Format 3: Try DateFormatter as fallback
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            if let parsedDate = dateFormatter.date(from: event.date) {
+                return calendar.startOfDay(for: parsedDate)
+            }
+
+            print("⚠️ Failed to parse date: '\(event.date)' for event: \(event.name)")
+            return calendar.startOfDay(for: Date()) // Fallback to today
+        }
+
+        // Sort by date and create sections
+        return grouped
+            .map { EventSection(date: $0.key, events: $0.value.sorted { $0.time < $1.time }) }
+            .sorted { $0.date < $1.date }
+    }
+}

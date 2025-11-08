@@ -1,0 +1,116 @@
+-- Fix the ambiguous column reference error in create_buyer_ticket_from_seller
+
+DROP FUNCTION IF EXISTS create_buyer_ticket_from_seller(uuid,uuid,uuid,uuid);
+
+CREATE FUNCTION create_buyer_ticket_from_seller(
+    p_buyer_id UUID,
+    p_seller_id UUID,
+    p_transaction_id UUID,
+    p_original_ticket_id UUID
+)
+RETURNS TABLE (
+    id TEXT,
+    user_id TEXT,
+    event_name TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_ticket_exists BOOLEAN;
+    v_ticket_already_sold BOOLEAN;
+BEGIN
+    -- Validate input parameters
+    IF p_buyer_id IS NULL THEN
+        RAISE EXCEPTION 'buyer_id cannot be null';
+    END IF;
+
+    IF p_seller_id IS NULL THEN
+        RAISE EXCEPTION 'seller_id cannot be null';
+    END IF;
+
+    IF p_transaction_id IS NULL THEN
+        RAISE EXCEPTION 'transaction_id cannot be null';
+    END IF;
+
+    IF p_original_ticket_id IS NULL THEN
+        RAISE EXCEPTION 'original_ticket_id cannot be null';
+    END IF;
+
+    -- Check if original ticket exists
+    SELECT EXISTS(
+        SELECT 1 FROM user_tickets ut WHERE ut.id = p_original_ticket_id
+    ) INTO v_ticket_exists;
+
+    IF NOT v_ticket_exists THEN
+        RAISE EXCEPTION 'Original ticket with id % does not exist', p_original_ticket_id;
+    END IF;
+
+    -- Check if ticket is already sold (safety check)
+    SELECT ut.sale_status = 'sold'
+    INTO v_ticket_already_sold
+    FROM user_tickets ut
+    WHERE ut.id = p_original_ticket_id;
+
+    IF NOT v_ticket_already_sold THEN
+        RAISE NOTICE 'Warning: Original ticket % is not marked as sold', p_original_ticket_id;
+    END IF;
+
+    -- Prevent duplicate ticket creation (use fully qualified table.column names)
+    IF EXISTS(
+        SELECT 1 FROM user_tickets ut
+        WHERE ut.user_id::uuid = p_buyer_id
+          AND ut.transaction_id::uuid = p_transaction_id
+          AND ut.purchased_from_seller_id::uuid = p_seller_id
+    ) THEN
+        RAISE EXCEPTION 'Buyer ticket already exists for transaction %', p_transaction_id;
+    END IF;
+
+    -- Create the buyer's ticket
+    RETURN QUERY
+    INSERT INTO user_tickets (
+        id, user_id, event_id, event_name, event_date, event_location,
+        organizer_name, organizer_id, ticket_type, ticket_screenshot_url,
+        event_image_url, price_per_ticket, total_price, currency,
+        ticket_source, is_listed, sale_status, buyer_id,
+        purchased_from_seller_id, transaction_id, quantity,
+        seller_username, seller_profile_picture_url, seller_university,
+        created_at, updated_at
+    )
+    SELECT
+        gen_random_uuid()::text,
+        p_buyer_id::text,
+        ut.event_id,
+        ut.event_name,
+        ut.event_date,
+        ut.event_location,
+        ut.organizer_name,
+        ut.organizer_id,
+        ut.ticket_type,
+        ut.ticket_screenshot_url,
+        ut.event_image_url,
+        ut.price_per_ticket,
+        ut.total_price,
+        COALESCE(ut.currency, 'GBP'),
+        'marketplace',
+        false,
+        'available',
+        NULL,
+        p_seller_id::text,
+        p_transaction_id::text,
+        COALESCE(ut.quantity, 1),
+        ut.seller_username,
+        ut.seller_profile_picture_url,
+        ut.seller_university,
+        NOW(),
+        NOW()
+    FROM user_tickets ut
+    WHERE ut.id = p_original_ticket_id
+    RETURNING
+        user_tickets.id AS id,
+        user_tickets.user_id AS user_id,
+        user_tickets.event_name AS event_name;
+END;
+$$;
+
+SELECT 'Function fixed successfully!' as status;

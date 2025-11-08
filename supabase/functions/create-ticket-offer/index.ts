@@ -179,7 +179,7 @@ serve(async (req) => {
         offer_amount,
         original_price: ticketPrice,
         status: "pending",
-        expires_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(), // 48 hours from now
+        expires_at: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(), // 12 hours from now
       })
       .select()
       .single();
@@ -205,7 +205,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       offer: newOffer,
-      message: "Offer submitted! The seller has 48 hours to respond.",
+      message: "Offer submitted! The seller has 12 hours to respond. Your offer expires in 12 hours.",
     }), {
       status: 201,
       headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },

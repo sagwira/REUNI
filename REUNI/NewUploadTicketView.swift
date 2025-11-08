@@ -1,6 +1,7 @@
 import SwiftUI
 
 /// New Upload Ticket View - Source selection first, then event search
+/// Step 0: Check if user has Stripe seller account
 /// Step 1: Select ticket source (Fatsoma/Fixr)
 /// Step 2: Search and select event from all events
 /// Step 3: Select ticket type
@@ -8,6 +9,12 @@ import SwiftUI
 struct NewUploadTicketView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(AuthenticationManager.self) private var authManager
+
+    // Stripe seller state
+    @State private var sellerService = StripeSellerService.shared
+    @State private var isCheckingStripe = true
+    @State private var needsStripeOnboarding = false
+    @State private var showStripeOnboarding = false
 
     // Navigation state
     @State private var selectedSource: TicketSource?
@@ -19,6 +26,55 @@ struct NewUploadTicketView: View {
     @State private var showTicketSelection = false
 
     var body: some View {
+        Group {
+            if isCheckingStripe {
+                // Show loading while checking Stripe status
+                VStack(spacing: 20) {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                    Text("Checking seller account...")
+                        .font(.system(size: 16))
+                        .foregroundColor(.secondary)
+                }
+            } else if needsStripeOnboarding {
+                // Show onboarding if no Stripe account
+                StripeOnboardingView(
+                    authManager: authManager,
+                    onComplete: {
+                        // Stripe onboarding complete
+                        needsStripeOnboarding = false
+                        showStripeOnboarding = false
+                    },
+                    onCancel: {
+                        // User cancelled onboarding
+                        dismiss()
+                    }
+                )
+            } else {
+                // Normal upload flow
+                uploadFlowView
+            }
+        }
+        .onAppear {
+            checkStripeStatus()
+        }
+        .fullScreenCover(isPresented: $showStripeOnboarding) {
+            StripeOnboardingView(
+                authManager: authManager,
+                onComplete: {
+                    needsStripeOnboarding = false
+                    showStripeOnboarding = false
+                },
+                onCancel: {
+                    dismiss()
+                }
+            )
+        }
+    }
+
+    // MARK: - Upload Flow View
+
+    private var uploadFlowView: some View {
         TicketSourceSelectionView(onSourceSelected: { source in
             selectedSource = source
 
@@ -117,6 +173,54 @@ struct NewUploadTicketView: View {
                         )
                         .environment(authManager)
                     }
+                }
+            }
+        }
+    }
+
+    // MARK: - Stripe Status Check
+
+    private func checkStripeStatus() {
+        guard let userId = authManager.currentUserId?.uuidString else {
+            print("❌ No user ID available")
+            isCheckingStripe = false
+            needsStripeOnboarding = true
+            return
+        }
+
+        Task {
+            do {
+                let status = try await sellerService.checkSellerAccountStatus(userId: userId)
+
+                await MainActor.run {
+                    isCheckingStripe = false
+
+                    switch status {
+                    case .active:
+                        // User has active Stripe account, proceed
+                        needsStripeOnboarding = false
+                        print("✅ User has active Stripe seller account")
+
+                    case .pending, .notCreated, .restricted:
+                        // BETA: Must have ACTIVE account to upload
+                        needsStripeOnboarding = true
+                        print("❌ Stripe account not active - blocking upload")
+                        if status == .pending {
+                            print("   → Account exists but needs completion")
+                        } else if status == .notCreated {
+                            print("   → No account - showing onboarding")
+                        } else {
+                            print("   → Account restricted")
+                        }
+                    }
+                }
+
+            } catch {
+                print("❌ Error checking Stripe status: \(error)")
+                await MainActor.run {
+                    isCheckingStripe = false
+                    // On error, assume needs onboarding
+                    needsStripeOnboarding = true
                 }
             }
         }

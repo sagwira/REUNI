@@ -7,20 +7,45 @@
 
 import SwiftUI
 
+// MARK: - View Extension for Conditional Modifiers
+extension View {
+    @ViewBuilder
+    func `if`<Content: View>(_ condition: Bool, transform: (Self) -> Content) -> some View {
+        if condition {
+            transform(self)
+        } else {
+            self
+        }
+    }
+}
+
 struct TicketCard: View {
     @Environment(\.colorScheme) var colorScheme
+    @Bindable var authManager: AuthenticationManager
     let event: Event
     var currentUserId: UUID?
+    var saleStatus: String? = nil  // available, pending_payment, sold, refunded
     var onDelete: (() -> Void)?
+    var disableTapGesture: Bool = false  // Disable tap for purchased tickets in My Purchases
+    var showViewTicketButton: Bool = false  // Show "View Ticket" button for purchased tickets
 
     @State private var showSellerProfile = false
     @State private var showDeleteConfirmation = false
     @State private var showBuyTicket = false
+    @State private var isPressed = false
 
     private var isOwnedByCurrentUser: Bool {
         guard let currentUserId = currentUserId else { return false }
         guard let userId = event.userId else { return false }
         return userId == currentUserId
+    }
+
+    private var isSold: Bool {
+        saleStatus == "sold"
+    }
+
+    private var canDelete: Bool {
+        isOwnedByCurrentUser && !isSold && onDelete != nil
     }
 
     var body: some View {
@@ -75,15 +100,28 @@ struct TicketCard: View {
 
             // Ticket Details
             VStack(alignment: .leading, spacing: 16) {
-                // Event Name & Delete Button
+                // Event Name, Status Badge & Delete Button
                 HStack(alignment: .top) {
-                    Text(event.title)
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.primary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(event.title)
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(.primary)
 
-                    // Delete Button (only for owned tickets)
-                    if isOwnedByCurrentUser, onDelete != nil {
+                        // SOLD badge
+                        if isSold {
+                            Text("SOLD")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.red)
+                                .cornerRadius(6)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    // Delete Button (only for owned tickets that aren't sold)
+                    if canDelete {
                         Button(action: {
                             showDeleteConfirmation = true
                         }) {
@@ -147,16 +185,53 @@ struct TicketCard: View {
                 Divider()
                     .padding(.vertical, 4)
 
-                // Price
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("£\(Int(event.price))")
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(.primary)
+                // Price or View Ticket Button
+                if showViewTicketButton {
+                    // View Ticket Button (for purchased tickets)
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("£\(Int(event.price))")
+                                .font(.system(size: 24, weight: .bold))
+                                .foregroundColor(.primary)
 
-                    // Availability
-                    Text("\(event.availableTickets) available")
-                        .font(.system(size: 13))
-                        .foregroundColor(.secondary)
+                            Text("Purchased")
+                                .font(.system(size: 13))
+                                .foregroundColor(.green)
+                        }
+
+                        Spacer()
+
+                        // This will be wrapped in NavigationLink in MyPurchasesView
+                        HStack(spacing: 6) {
+                            Image(systemName: "ticket.fill")
+                                .font(.system(size: 14))
+                            Text("View Ticket")
+                                .font(.system(size: 15, weight: .semibold))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                        .background(
+                            LinearGradient(
+                                colors: [Color.red, Color.red.opacity(0.85)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .cornerRadius(10)
+                    }
+                } else {
+                    // Price and Availability (for marketplace listings)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("£\(Int(event.price))")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundColor(.primary)
+
+                        // Availability
+                        Text("\(event.availableTickets) available")
+                            .font(.system(size: 13))
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
             .padding(20)
@@ -181,8 +256,41 @@ struct TicketCard: View {
                     lineWidth: 1.5
                 )
         )
+        // Grey overlay for sold tickets
+        .overlay(
+            isSold ?
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.gray.opacity(0.6))
+                .allowsHitTesting(false)
+            : nil
+        )
+        .scaleEffect(isPressed ? 0.98 : 1.0)
+        .opacity(isSold ? 0.7 : (isOwnedByCurrentUser ? 1.0 : (isPressed ? 0.9 : 1.0)))
+        .animation(.easeInOut(duration: 0.1), value: isPressed)
+        .if(!disableTapGesture) { view in
+            view
+                .onLongPressGesture(minimumDuration: .infinity, maximumDistance: .infinity, pressing: { pressing in
+                    // Only show press effect for tickets that can be purchased (not sold, not yours)
+                    if !isOwnedByCurrentUser && !isSold {
+                        isPressed = pressing
+                    }
+                }, perform: {})
+                .onTapGesture {
+                    // Only allow purchasing tickets that aren't yours and aren't sold
+                    if !isOwnedByCurrentUser && !isSold {
+                        showBuyTicket = true
+
+                        // Haptic feedback
+                        let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
+                        impactFeedback.impactOccurred()
+                    }
+                }
+        }
         .fullScreenCover(isPresented: $showBuyTicket) {
-            BuyTicketView(event: event)
+            BuyTicketView(
+                authManager: authManager,
+                event: event
+            )
         }
         .sheet(isPresented: $showSellerProfile) {
             SellerProfileView(event: event)
@@ -253,30 +361,33 @@ struct TicketCard: View {
 }
 
 #Preview {
-    TicketCard(event: Event(
-        id: UUID(),
-        title: "Spring Formal Dance",
-        userId: UUID(),
-        organizerId: UUID(),
-        organizerUsername: "emma_events",
-        organizerProfileUrl: nil,
-        organizerVerified: true,
-        organizerUniversity: "University of Manchester",
-        organizerDegree: "Business Management",
-        eventDate: Date(),
-        lastEntry: Date(),
-        price: 60,
-        originalPrice: 65,
-        availableTickets: 1,
-        city: "London",
-        ageRestriction: 18,
-        ticketSource: "Fatsoma",
-        eventImageUrl: "https://example.com/event-promo.jpg",
-        ticketImageUrl: nil,
-        createdAt: Date(),
-        ticketType: nil,
-        lastEntryType: nil,
-        lastEntryLabel: nil
-    ))
+    TicketCard(
+        authManager: AuthenticationManager(),
+        event: Event(
+            id: UUID(),
+            title: "Spring Formal Dance",
+            userId: UUID(),
+            organizerId: UUID(),
+            organizerUsername: "emma_events",
+            organizerProfileUrl: nil,
+            organizerVerified: true,
+            organizerUniversity: "University of Manchester",
+            organizerDegree: "Business Management",
+            eventDate: Date(),
+            lastEntry: Date(),
+            price: 60,
+            originalPrice: 65,
+            availableTickets: 1,
+            city: "London",
+            ageRestriction: 18,
+            ticketSource: "Fatsoma",
+            eventImageUrl: "https://example.com/event-promo.jpg",
+            ticketImageUrl: nil,
+            createdAt: Date(),
+            ticketType: nil,
+            lastEntryType: nil,
+            lastEntryLabel: nil
+        )
+    )
     .padding()
 }

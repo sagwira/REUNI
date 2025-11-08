@@ -320,6 +320,7 @@ struct SellingTicketsView: View {
                         ForEach(sellingTickets) { event in
                             ZStack(alignment: .topTrailing) {
                                 TicketCard(
+                                    authManager: authManager,
                                     event: event,
                                     currentUserId: authManager.currentUserId
                                 )

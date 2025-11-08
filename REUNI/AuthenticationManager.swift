@@ -146,8 +146,7 @@ class AuthenticationManager {
         do {
             let session = try await supabase.auth.signUp(
                 phone: phone,
-                password: password,
-                channel: .sms
+                password: password
             )
 
             guard let userId = UUID(uuidString: session.user.id.uuidString) else {
@@ -170,7 +169,7 @@ class AuthenticationManager {
             let session = try await supabase.auth.verifyOTP(
                 email: email,
                 token: token,
-                type: .signup
+                type: .email
             )
 
             print("✅ OTP verified successfully")
@@ -216,7 +215,7 @@ class AuthenticationManager {
             _ = try await supabase.auth.verifyOTP(
                 email: email,
                 token: token,
-                type: .recovery
+                type: .email
             )
 
             print("✅ Password reset OTP verified successfully")
@@ -242,7 +241,7 @@ class AuthenticationManager {
     func resendPasswordResetOTP(email: String) async throws {
         do {
             print("📧 Resending password reset OTP to: \(email)")
-            try await supabase.auth.resetPasswordForEmail(email, redirectTo: nil)
+            try await supabase.auth.resetPasswordForEmail(email)
             print("✅ Password reset OTP resent successfully")
         } catch {
             print("❌ Failed to resend password reset OTP: \(error)")
@@ -335,7 +334,7 @@ class AuthenticationManager {
             do {
                 try await supabase
                     .from("profiles")
-                    .insert(profile, returning: .minimal)
+                    .insert(profile)
                     .execute()
                 print("✅ Profile insert executed successfully")
             } catch {

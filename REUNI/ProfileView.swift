@@ -6,11 +6,19 @@
 //
 
 import SwiftUI
+import SafariServices
 
 struct ProfileView: View {
     @Bindable var authManager: AuthenticationManager
     @Bindable var navigationCoordinator: NavigationCoordinator
     @Bindable var themeManager: ThemeManager
+
+    @State private var sellerService = StripeSellerService.shared
+    @State private var stripeAccountStatus: StripeSellerService.SellerAccountStatus = .notCreated
+    @State private var isLoadingStripe = true
+    @State private var showStripeOnboarding = false
+    @State private var showDashboardSafari = false
+    @State private var dashboardURL: URL?
 
     var body: some View {
         NavigationStack {
@@ -79,6 +87,45 @@ struct ProfileView: View {
                         }
                         .padding(.top, 20)
 
+                        // Stripe Seller Account Section
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("Stripe Seller Account")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundStyle(themeManager.primaryText)
+                                .padding(.horizontal, 20)
+
+                            if isLoadingStripe {
+                                // Loading state
+                                VStack(spacing: 12) {
+                                    ProgressView()
+                                        .tint(themeManager.accentColor)
+                                    Text("Loading account status...")
+                                        .font(.system(size: 14))
+                                        .foregroundStyle(themeManager.secondaryText)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(20)
+                                .background(themeManager.cardBackground)
+                                .cornerRadius(16)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(themeManager.borderColor, lineWidth: 1)
+                                )
+                                .padding(.horizontal, 20)
+                            } else {
+                                StripeAccountCard(
+                                    status: stripeAccountStatus,
+                                    themeManager: themeManager,
+                                    onManageAccount: {
+                                        openStripeDashboard()
+                                    },
+                                    onSetupAccount: {
+                                        showStripeOnboarding = true
+                                    }
+                                )
+                            }
+                        }
+
                         // Quick Actions
                         VStack(spacing: 12) {
                             NavigationLink(destination: AccountSettingsView(authManager: authManager, navigationCoordinator: navigationCoordinator, themeManager: themeManager)) {
@@ -93,14 +140,6 @@ struct ProfileView: View {
                                 ProfileActionRow(
                                     icon: "pencil.circle.fill",
                                     title: "Edit Profile",
-                                    themeManager: themeManager
-                                )
-                            }
-
-                            NavigationLink(destination: FriendsView(authManager: authManager, navigationCoordinator: navigationCoordinator, themeManager: themeManager)) {
-                                ProfileActionRow(
-                                    icon: "person.2.fill",
-                                    title: "Friends",
                                     themeManager: themeManager
                                 )
                             }
@@ -147,6 +186,106 @@ struct ProfileView: View {
                 }
             }
             .navigationBarHidden(true)
+            .task {
+                await loadStripeStatus()
+            }
+            .fullScreenCover(isPresented: $showStripeOnboarding) {
+                StripeOnboardingView(
+                    authManager: authManager,
+                    onComplete: {
+                        showStripeOnboarding = false
+                        Task {
+                            await loadStripeStatus()
+                        }
+                    },
+                    onCancel: {
+                        showStripeOnboarding = false
+                    }
+                )
+            }
+            .sheet(isPresented: $showDashboardSafari) {
+                if let url = dashboardURL {
+                    SafariView(url: url) {
+                        // Dismiss handler (optional)
+                    }
+                }
+            }
+        }
+    }
+
+    private func loadStripeStatus() async {
+        guard let userId = authManager.currentUserId?.uuidString else {
+            isLoadingStripe = false
+            return
+        }
+
+        isLoadingStripe = true
+
+        do {
+            let status = try await sellerService.checkSellerAccountStatus(userId: userId)
+            await MainActor.run {
+                stripeAccountStatus = status
+                isLoadingStripe = false
+            }
+        } catch {
+            print("❌ Error loading Stripe status: \(error)")
+            await MainActor.run {
+                stripeAccountStatus = .notCreated
+                isLoadingStripe = false
+            }
+        }
+    }
+
+    private func openStripeDashboard() {
+        guard let userId = authManager.currentUserId?.uuidString,
+              let accountId = sellerService.stripeAccountId else {
+            print("❌ No user ID or account ID available")
+            return
+        }
+
+        Task {
+            // BETA: For test mode, try multiple methods to access dashboard
+            print("🔐 Generating Express Dashboard access link...")
+            print("   Account ID: \(accountId)")
+            print("   Status: \(stripeAccountStatus)")
+
+            var linkUrl: String? = nil
+
+            // Method 1: Try login link (works for completed accounts in live mode)
+            if stripeAccountStatus == .active {
+                do {
+                    linkUrl = try await sellerService.generateDashboardLoginLink(userId: userId)
+                    print("✅ Generated login link")
+                } catch {
+                    print("⚠️ Login link failed: \(error)")
+                }
+            }
+
+            // Method 2: Try onboarding link refresh (works in test mode)
+            if linkUrl == nil {
+                do {
+                    linkUrl = try await sellerService.refreshOnboardingLink(userId: userId)
+                    print("✅ Generated onboarding link")
+                } catch {
+                    print("⚠️ Onboarding link failed: \(error)")
+                }
+            }
+
+            // Method 3: Use direct Stripe dashboard URL as fallback
+            if let url = linkUrl {
+                await MainActor.run {
+                    dashboardURL = URL(string: url)
+                    showDashboardSafari = true
+                }
+            } else {
+                print("⚠️ All link generation methods failed, opening Stripe dashboard directly")
+                await MainActor.run {
+                    // Open Stripe dashboard in external browser
+                    if let url = URL(string: "https://dashboard.stripe.com/test/connect/accounts/\(accountId)") {
+                        UIApplication.shared.open(url)
+                    }
+                }
+            }
         }
     }
 }

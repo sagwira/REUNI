@@ -2,16 +2,15 @@
 //  PaymentView.swift
 //  REUNI
 //
-//  Payment method selection and processing
+//  Payment method selection and Stripe processing
 //
 
 import SwiftUI
+import StripePaymentSheet
 
 enum PaymentMethod: String, CaseIterable {
     case creditCard = "Credit card"
     case applePay = "Apple Pay"
-    case paypal = "Paypal"
-    case other = "All other methods"
 
     var icon: String {
         switch self {
@@ -19,32 +18,32 @@ enum PaymentMethod: String, CaseIterable {
             return "creditcard.fill"
         case .applePay:
             return "applelogo"
-        case .paypal:
-            return "p.circle.fill"
-        case .other:
-            return "ellipsis"
         }
-    }
-
-    var showChevron: Bool {
-        self == .other
     }
 }
 
 struct PaymentView: View {
     @Environment(\.dismiss) private var dismiss
+    @Bindable var authManager: AuthenticationManager
 
-    let totalAmount: Double
-    let onPaymentComplete: () -> Void
+    let event: Event
+    let totalAmount: Double // This is the ticket price
+    let onPaymentComplete: (String) -> Void // Pass transaction ID back
+
+    private let stripeService = StripeService.shared
+    private let platformFeePercentage: Double = 10.0 // 10% platform fee
+    private let flatFee: Double = 1.00 // £1.00 flat booking fee
 
     @State private var selectedPaymentMethod: PaymentMethod = .creditCard
     @State private var isProcessing = false
     @State private var showError = false
     @State private var errorMessage = ""
 
-    // Mock card details (in production, fetch from user's saved cards)
-    private let cardHolderName = "Jacob Jones"
-    private let cardLastFour = "0351"
+    // Calculated values
+    private var ticketPrice: Double { totalAmount }
+    private var percentageFee: Double { round((ticketPrice * platformFeePercentage / 100) * 100) / 100 }
+    private var platformFee: Double { round((flatFee + percentageFee) * 100) / 100 }
+    private var buyerTotal: Double { ticketPrice + platformFee }
 
     var body: some View {
         NavigationStack {
@@ -83,94 +82,76 @@ struct PaymentView: View {
                             .background(.white)
                             .cornerRadius(16)
                             .padding(.horizontal, 20)
-                        }
 
-                        // Card Details (only show for credit card)
-                        if selectedPaymentMethod == .creditCard {
-                            VStack(spacing: 0) {
-                                // Dark Card
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .fill(Color(red: 0.15, green: 0.15, blue: 0.15))
-
-                                    VStack(alignment: .leading, spacing: 12) {
-                                        HStack {
-                                            VStack(alignment: .leading, spacing: 4) {
-                                                Text("Name on card")
-                                                    .font(.system(size: 12))
-                                                    .foregroundStyle(.white.opacity(0.6))
-
-                                                Text(cardHolderName)
-                                                    .font(.system(size: 20, weight: .semibold))
-                                                    .foregroundStyle(.white)
-                                            }
-
-                                            Spacer()
-
-                                            HStack(spacing: 4) {
-                                                Text("••••")
-                                                    .font(.system(size: 16, weight: .medium))
-                                                    .foregroundStyle(.white)
-
-                                                Text(cardLastFour)
-                                                    .font(.system(size: 16, weight: .medium))
-                                                    .foregroundStyle(.white)
-                                            }
-                                        }
-
-                                        HStack {
-                                            Spacer()
-
-                                            // Mastercard Logo
-                                            ZStack {
-                                                Circle()
-                                                    .fill(Color(red: 0.92, green: 0.29, blue: 0.23))
-                                                    .frame(width: 32, height: 32)
-                                                    .offset(x: -8)
-
-                                                Circle()
-                                                    .fill(Color(red: 0.98, green: 0.62, blue: 0.11))
-                                                    .frame(width: 32, height: 32)
-                                                    .offset(x: 8)
-                                            }
-                                            .frame(width: 48, height: 32)
-                                        }
-                                    }
-                                    .padding(20)
-                                }
-                                .frame(height: 140)
-                            }
-                            .padding(.horizontal, 20)
+                            // Info text
+                            Text("Payments are securely processed by Stripe")
+                                .font(.system(size: 13))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 20)
                         }
 
                         Spacer(minLength: 100)
                     }
                 }
 
-                // Bottom Section - Total and Pay Button
+                // Bottom Section - Price Breakdown and Pay Button
                 VStack(spacing: 0) {
                     Spacer()
 
-                    VStack(spacing: 20) {
+                    VStack(spacing: 16) {
                         Divider()
 
-                        // Total
-                        HStack {
-                            Text("Total")
-                                .font(.system(size: 20, weight: .semibold))
-                                .foregroundStyle(.black)
+                        // Price Breakdown
+                        VStack(spacing: 12) {
+                            // Ticket Price
+                            HStack {
+                                Text("Ticket price")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(.secondary)
 
-                            Spacer()
+                                Spacer()
 
-                            Text("£\(String(format: "%.2f", totalAmount))")
-                                .font(.system(size: 20, weight: .bold))
-                                .foregroundStyle(.black)
+                                Text("£\(String(format: "%.2f", ticketPrice))")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(.black)
+                            }
+
+                            // Service Fee (simple, single line)
+                            HStack {
+                                Text("Service fee")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(.secondary)
+
+                                Spacer()
+
+                                Text("£\(String(format: "%.2f", platformFee))")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(.black)
+                            }
+
+                            Divider()
+                                .padding(.vertical, 4)
+
+                            // Total
+                            HStack {
+                                Text("Total")
+                                    .font(.system(size: 20, weight: .semibold))
+                                    .foregroundStyle(.black)
+
+                                Spacer()
+
+                                Text("£\(String(format: "%.2f", buyerTotal))")
+                                    .font(.system(size: 20, weight: .bold))
+                                    .foregroundStyle(.black)
+                            }
                         }
                         .padding(.horizontal, 20)
 
                         // Pay Button
                         Button(action: {
-                            handlePayment()
+                            Task {
+                                await handlePayment()
+                            }
                         }) {
                             if isProcessing {
                                 ProgressView()
@@ -178,7 +159,7 @@ struct PaymentView: View {
                                     .frame(maxWidth: .infinity)
                                     .frame(height: 56)
                             } else {
-                                Text("Pay")
+                                Text("Pay £\(String(format: "%.2f", buyerTotal))")
                                     .font(.system(size: 18, weight: .semibold))
                                     .foregroundStyle(.white)
                                     .frame(maxWidth: .infinity)
@@ -214,22 +195,109 @@ struct PaymentView: View {
         }
     }
 
-    private func handlePayment() {
+    // MARK: - Payment Processing
+
+    private func handlePayment() async {
+        guard let currentUserId = authManager.currentUserId?.uuidString else {
+            errorMessage = "User not authenticated"
+            showError = true
+            return
+        }
+
+        guard let sellerId = event.userId?.uuidString else {
+            errorMessage = "Invalid seller information"
+            showError = true
+            return
+        }
+
         isProcessing = true
 
-        // Simulate payment processing
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+        do {
+            print("🔄 Starting payment flow...")
+
+            // Step 1: Create payment intent via Edge Function
+            let (clientSecret, ephemeralKey, customerId) = try await stripeService.createPaymentIntent(
+                ticketId: event.id.uuidString,
+                ticketPrice: totalAmount,
+                buyerId: currentUserId,
+                sellerId: sellerId
+            )
+
+            // Step 2: Prepare payment sheet (with total including fees)
+            try await stripeService.preparePaymentSheet(
+                clientSecret: clientSecret,
+                ephemeralKey: ephemeralKey,
+                customerId: customerId,
+                ticketTitle: event.title,
+                amount: buyerTotal // Total amount buyer pays (ticket + platform fee)
+            )
+
             isProcessing = false
 
-            // TODO: Implement actual payment processing
-            // - Validate payment method
-            // - Process payment with payment provider
-            // - Create transaction record
-            // - Update ticket availability
-            // - Send confirmation notifications
+            // Step 3: Present payment sheet
+            if let paymentSheet = stripeService.paymentSheet {
+                guard let rootViewController = await getRootViewController() else {
+                    throw PaymentError.noViewController
+                }
 
-            onPaymentComplete()
+                // Wait for view hierarchy to settle
+                try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+
+                // Find the topmost presented view controller
+                var topViewController = rootViewController
+                while let presented = topViewController.presentedViewController {
+                    topViewController = presented
+                }
+
+                paymentSheet.present(from: topViewController) { result in
+                    handlePaymentSheetResult(result)
+                }
+            }
+
+        } catch {
+            isProcessing = false
+            print("❌ Payment error: \(error.localizedDescription)")
+            errorMessage = "Failed to initiate payment: \(error.localizedDescription)"
+            showError = true
+        }
+    }
+
+    private func handlePaymentSheetResult(_ result: PaymentSheetResult) {
+        switch result {
+        case .completed:
+            // Payment successful!
+            print("✅ Payment completed successfully")
+            onPaymentComplete(event.id.uuidString) // Transaction ID will be updated by webhook
             dismiss()
+
+        case .canceled:
+            // User canceled
+            print("ℹ️ Payment canceled by user")
+
+        case .failed(let error):
+            // Payment failed
+            print("❌ Payment failed: \(error.localizedDescription)")
+            errorMessage = "Payment failed: \(error.localizedDescription)"
+            showError = true
+        }
+    }
+
+    @MainActor
+    private func getRootViewController() async -> UIViewController? {
+        let scenes = UIApplication.shared.connectedScenes
+        let windowScene = scenes.first as? UIWindowScene
+        let window = windowScene?.windows.first
+        return window?.rootViewController
+    }
+}
+
+enum PaymentError: LocalizedError {
+    case noViewController
+
+    var errorDescription: String? {
+        switch self {
+        case .noViewController:
+            return "Could not find view controller to present payment sheet"
         }
     }
 }
@@ -252,19 +320,6 @@ struct PaymentMethodRow: View {
                         Image(systemName: method.icon)
                             .font(.system(size: 24))
                             .foregroundStyle(.black)
-                    } else if method == .paypal {
-                        // PayPal logo - try custom image first, fallback to colored P
-                        if let _ = UIImage(named: "paypal-logo") {
-                            Image("paypal-logo")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 28, height: 28)
-                        } else {
-                            // Fallback: Blue P for PayPal
-                            Text("P")
-                                .font(.system(size: 26, weight: .bold))
-                                .foregroundStyle(Color(red: 0.0, green: 0.19, blue: 0.47)) // PayPal blue #003087
-                        }
                     } else {
                         Image(systemName: method.icon)
                             .font(.system(size: 20))
@@ -279,22 +334,16 @@ struct PaymentMethodRow: View {
 
                 Spacer()
 
-                // Selection Indicator or Chevron
-                if method.showChevron {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.gray)
-                } else {
-                    ZStack {
-                        Circle()
-                            .stroke(isSelected ? Color.black : Color.gray.opacity(0.3), lineWidth: 2)
-                            .frame(width: 24, height: 24)
+                // Selection Indicator
+                ZStack {
+                    Circle()
+                        .stroke(isSelected ? Color.black : Color.gray.opacity(0.3), lineWidth: 2)
+                        .frame(width: 24, height: 24)
 
-                        if isSelected {
-                            Circle()
-                                .fill(.black)
-                                .frame(width: 12, height: 12)
-                        }
+                    if isSelected {
+                        Circle()
+                            .fill(.black)
+                            .frame(width: 12, height: 12)
                     }
                 }
             }
@@ -307,7 +356,35 @@ struct PaymentMethodRow: View {
 }
 
 #Preview {
-    PaymentView(totalAmount: 650.00) {
-        print("Payment completed")
+    PaymentView(
+        authManager: AuthenticationManager(),
+        event: Event(
+            id: UUID(),
+            title: "Spring Formal Dance",
+            userId: UUID(),
+            organizerId: UUID(),
+            organizerUsername: "emma_events",
+            organizerProfileUrl: nil,
+            organizerVerified: true,
+            organizerUniversity: "University of Manchester",
+            organizerDegree: "Business Management",
+            eventDate: Date(),
+            lastEntry: Date(),
+            price: 65.00,
+            originalPrice: 70.00,
+            availableTickets: 2,
+            city: "Manchester",
+            ageRestriction: 18,
+            ticketSource: "Fatsoma",
+            eventImageUrl: nil,
+            ticketImageUrl: nil,
+            createdAt: Date(),
+            ticketType: nil,
+            lastEntryType: nil,
+            lastEntryLabel: nil
+        ),
+        totalAmount: 65.00
+    ) { transactionId in
+        print("Payment completed: \(transactionId)")
     }
 }

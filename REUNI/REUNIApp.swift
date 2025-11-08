@@ -7,11 +7,17 @@
 
 import SwiftUI
 import Supabase
+import StripePaymentSheet
 
 @main
 struct REUNIApp: App {
     @State private var authManager = AuthenticationManager()
     @State private var themeManager = ThemeManager()
+
+    init() {
+        // Configure Stripe with publishable key
+        StripeAPI.defaultPublishableKey = Config.stripePublishableKey
+    }
 
     var body: some Scene {
         WindowGroup {

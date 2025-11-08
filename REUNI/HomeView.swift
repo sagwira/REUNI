@@ -25,19 +25,22 @@ struct HomeView: View {
 
     var filteredTickets: [UserTicket] {
         tickets.filter { ticket in
+            // Hide sold tickets from marketplace
+            let isNotSold = ticket.saleStatus != "sold"
+
             // Search filter
             let matchesSearch = searchText.isEmpty ||
-                ticket.eventName.localizedCaseInsensitiveContains(searchText) ||
-                ticket.organizerName.localizedCaseInsensitiveContains(searchText) ||
-                ticket.eventLocation.localizedCaseInsensitiveContains(searchText)
+                ticket.eventName?.localizedCaseInsensitiveContains(searchText) == true ||
+                ticket.organizerName?.localizedCaseInsensitiveContains(searchText) == true ||
+                ticket.eventLocation?.localizedCaseInsensitiveContains(searchText) == true
 
             // City filter
-            let matchesCity = selectedCity == "All Cities" || ticket.eventLocation.localizedCaseInsensitiveContains(selectedCity)
+            let matchesCity = selectedCity == "All Cities" || ticket.eventLocation?.localizedCaseInsensitiveContains(selectedCity) == true
 
             // Age restriction filter (keeping for future use)
             let matchesAge = selectedAgeRestrictions.isEmpty
 
-            return matchesSearch && matchesCity && matchesAge
+            return isNotSold && matchesSearch && matchesCity && matchesAge
         }
     }
 
@@ -115,8 +118,10 @@ struct HomeView: View {
                             LazyVStack(spacing: 16) {
                                 ForEach(filteredTickets) { ticket in
                                     TicketCard(
+                                        authManager: authManager,
                                         event: mapTicketToEvent(ticket),
-                                        currentUserId: authManager.currentUserId
+                                        currentUserId: authManager.currentUserId,
+                                        saleStatus: ticket.saleStatus
                                     )
                                     .transition(.asymmetric(
                                         insertion: .opacity.combined(with: .move(edge: .top)),
@@ -140,10 +145,8 @@ struct HomeView: View {
                 FilterView(selectedCity: $selectedCity, selectedAgeRestrictions: $selectedAgeRestrictions)
             }
             .task {
-                // Set default city filter to user's city
-                if let userCity = authManager.currentUser?.city, !userCity.isEmpty, userCity != "Unknown" {
-                    selectedCity = userCity
-                }
+                // Don't auto-filter by city - show all marketplace tickets
+                selectedCity = "All Cities"
                 await loadMarketplaceTickets()
                 setupRealtimeSubscription()
             }
@@ -169,13 +172,15 @@ struct HomeView: View {
         print("🔄 Loading marketplace tickets...")
 
         APIService.shared.fetchMarketplaceTickets { result in
-            switch result {
-            case .success(let fetchedTickets):
-                self.tickets = fetchedTickets
-                print("✅ Loaded \(fetchedTickets.count) marketplace tickets")
-            case .failure(let error):
-                print("❌ Error loading marketplace tickets: \(error)")
-                self.tickets = []
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let fetchedTickets):
+                    self.tickets = fetchedTickets
+                    print("✅ Loaded \(fetchedTickets.count) marketplace tickets")
+                case .failure(let error):
+                    print("❌ Error loading marketplace tickets: \(error)")
+                    self.tickets = []
+                }
             }
         }
     }
@@ -184,7 +189,7 @@ struct HomeView: View {
     private func mapTicketToEvent(_ ticket: UserTicket) -> Event {
         // Parse date from string to Date
         let dateFormatter = ISO8601DateFormatter()
-        let eventDate = dateFormatter.date(from: ticket.eventDate) ?? Date()
+        let eventDate = dateFormatter.date(from: ticket.eventDate ?? "") ?? Date()
 
         // For UserTicket, we don't have separate last_entry, so use event date
         let lastEntry = eventDate
@@ -196,7 +201,7 @@ struct HomeView: View {
 
         return Event(
             id: ticketId,
-            title: ticket.eventName,
+            title: ticket.eventName ?? "Unknown Event",
             userId: userId,
             organizerId: organizerId,
             organizerUsername: ticket.sellerUsername ?? "Unknown User",
@@ -206,7 +211,7 @@ struct HomeView: View {
             organizerDegree: nil,
             eventDate: eventDate,
             lastEntry: lastEntry,
-            price: ticket.pricePerTicket,
+            price: ticket.totalPrice ?? ticket.pricePerTicket ?? 0.0,  // Use total_price first (database has this)
             originalPrice: nil,
             availableTickets: ticket.quantity,
             city: ticket.eventLocation,
@@ -222,7 +227,7 @@ struct HomeView: View {
     }
 
     private func deleteTicket(_ ticket: UserTicket) {
-        print("🗑️ Deleting ticket: \(ticket.eventName)")
+        print("🗑️ Deleting ticket: \(ticket.eventName ?? "Unknown")")
 
         // Remove from local array first for instant UI feedback
         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {

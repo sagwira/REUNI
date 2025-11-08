@@ -7,34 +7,46 @@ struct FatsomaEventSearchView: View {
 
     var body: some View {
         NavigationView {
-            VStack {
+            VStack(spacing: 0) {
                 // Search Bar
                 SearchBar(text: $viewModel.searchText, placeholder: "Search for event name...")
                     .padding()
 
-                // Search Results
+                // Content
                 if viewModel.isLoading {
-                    ProgressView("Searching events...")
+                    ProgressView("Loading events...")
                         .padding()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if let error = viewModel.errorMessage {
                     ErrorView(message: error) {
-                        viewModel.searchEvents()
+                        viewModel.loadAllEvents()
                     }
                 } else if viewModel.searchText.isEmpty {
-                    EmptySearchView()
-                } else if viewModel.filteredEvents.isEmpty {
-                    NoResultsView(searchText: viewModel.searchText)
-                } else {
-                    // Event List
-                    List(viewModel.filteredEvents) { event in
-                        EventSearchRow(event: event)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
+                    // BROWSE MODE: Show all events grouped by date
+                    if viewModel.eventSections.isEmpty {
+                        EmptyEventsView()
+                    } else {
+                        BrowseEventsByDateView(
+                            sections: viewModel.eventSections,
+                            onEventSelected: { event in
                                 selectedEvent = event
                                 dismiss()
                             }
+                        )
                     }
-                    .listStyle(.plain)
+                } else {
+                    // SEARCH MODE: Show filtered results grouped by date
+                    if viewModel.filteredSections.isEmpty {
+                        NoResultsView(searchText: viewModel.searchText)
+                    } else {
+                        BrowseEventsByDateView(
+                            sections: viewModel.filteredSections,
+                            onEventSelected: { event in
+                                selectedEvent = event
+                                dismiss()
+                            }
+                        )
+                    }
                 }
             }
             .navigationTitle("Select Event")
@@ -78,7 +90,152 @@ struct SearchBar: View {
     }
 }
 
-// MARK: - Event Search Row
+// MARK: - Browse Events By Date View
+struct BrowseEventsByDateView: View {
+    let sections: [EventSection]
+    let onEventSelected: (FatsomaEvent) -> Void
+
+    var body: some View {
+        List {
+            ForEach(sections) { section in
+                Section(header: DateSectionHeader(section: section)) {
+                    ForEach(section.events) { event in
+                        EventRow(event: event)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                onEventSelected(event)
+                            }
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+    }
+}
+
+// MARK: - Date Section Header
+struct DateSectionHeader: View {
+    let section: EventSection
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(section.relativeDateHeader)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(.primary)
+
+            Text("\(section.events.count) event\(section.events.count == 1 ? "" : "s")")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Enhanced Event Row
+struct EventRow: View {
+    let event: FatsomaEvent
+
+    private var cleanName: String {
+        event.name.removingSoldOutText()
+    }
+
+    private var isSoldOut: Bool {
+        event.name.containsSoldOut()
+    }
+
+    private var formattedDate: String {
+        // Parse the date and format it nicely
+        let iso8601Full = ISO8601DateFormatter()
+        if let parsedDate = iso8601Full.date(from: event.date) {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "EEE, MMM d" // "Mon, Nov 3"
+            return formatter.string(from: parsedDate)
+        }
+
+        // Fallback to date only format
+        let iso8601Date = ISO8601DateFormatter()
+        iso8601Date.formatOptions = [.withFullDate]
+        if let parsedDate = iso8601Date.date(from: event.date) {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "EEE, MMM d"
+            return formatter.string(from: parsedDate)
+        }
+
+        return event.date // Fallback to raw date string
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            // Event image thumbnail
+            if !event.imageUrl.isEmpty {
+                AsyncImage(url: URL(string: event.imageUrl)) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    case .empty, .failure:
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.2))
+                    @unknown default:
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.2))
+                    }
+                }
+                .frame(width: 60, height: 60)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(cleanName)
+                    .font(.system(size: 16, weight: .semibold))
+                    .lineLimit(2)
+
+                // Date, time and location
+                HStack(spacing: 4) {
+                    Label(formattedDate, systemImage: "calendar")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Text("•")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Label(event.time, systemImage: "clock")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                Label(event.location, systemImage: "mappin.circle")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+
+                // Ticket count
+                if !event.tickets.isEmpty {
+                    Text("\(event.tickets.count) ticket type\(event.tickets.count == 1 ? "" : "s")")
+                        .font(.caption2)
+                        .foregroundColor(.blue)
+                }
+            }
+
+            Spacer()
+
+            if isSoldOut {
+                Text("Sold out")
+                    .font(.caption2)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.gray.opacity(0.2))
+                    .foregroundColor(.gray)
+                    .cornerRadius(4)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Event Search Row (Legacy - for search mode)
 struct EventSearchRow: View {
     let event: FatsomaEvent
 
@@ -163,6 +320,27 @@ extension String {
 }
 
 // MARK: - Empty States
+struct EmptyEventsView: View {
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "calendar.badge.exclamationmark")
+                .font(.system(size: 60))
+                .foregroundColor(.gray)
+
+            Text("No events available")
+                .font(.title3)
+                .fontWeight(.semibold)
+
+            Text("No upcoming events found in the database")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+        }
+        .padding()
+    }
+}
+
 struct EmptySearchView: View {
     var body: some View {
         VStack(spacing: 16) {
@@ -249,64 +427,79 @@ class FatsomaSearchViewModel: ObservableObject {
     @Published var searchText = ""
     @Published var allEvents: [FatsomaEvent] = []
     @Published var filteredEvents: [FatsomaEvent] = []
+    @Published var eventSections: [EventSection] = []
+    @Published var filteredSections: [EventSection] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
 
     private var searchTask: Task<Void, Never>?
+    private var cancellables = Set<AnyCancellable>()
 
     init() {
+        // Load all events on init for browse mode
+        loadAllEvents()
         // Monitor search text changes
         setupSearchBinding()
     }
 
-    private func setupSearchBinding() {
-        // Debounce search
-        Task { @MainActor in
-            for await _ in NotificationCenter.default.notifications(named: .init("SearchTextChanged")) {
-                searchTask?.cancel()
-                searchTask = Task {
-                    try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 second debounce
-                    if !Task.isCancelled {
-                        searchEvents()
-                    }
-                }
-            }
-        }
-
-        // Observe search text
-        $searchText
-            .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.searchEvents()
-            }
-            .store(in: &cancellables)
-    }
-
-    private var cancellables = Set<AnyCancellable>()
-
-    func searchEvents() {
-        guard !searchText.isEmpty else {
-            filteredEvents = []
-            return
-        }
-
+    func loadAllEvents() {
+        print("🎓 Loading all events")
         isLoading = true
         errorMessage = nil
 
-        // Search via API
-        APIService.shared.searchEvents(query: searchText) { [weak self] result in
+        APIService.shared.fetchFatsomaEvents { [weak self] result in
             DispatchQueue.main.async {
                 self?.isLoading = false
 
                 switch result {
                 case .success(let events):
-                    self?.filteredEvents = events
+                    print("✅ Received \(events.count) events")
+                    self?.allEvents = events
+                    let sections = events.groupedByDate()
+                    print("📅 Grouped into \(sections.count) date sections")
+                    for section in sections.prefix(5) {
+                        print("  - \(section.relativeDateHeader): \(section.events.count) events")
+                    }
+                    self?.eventSections = sections
+                    print("✅ Event sections set: \(sections.count) sections total")
                 case .failure(let error):
+                    print("❌ Error loading events: \(error.localizedDescription)")
                     self?.errorMessage = error.localizedDescription
-                    self?.filteredEvents = []
                 }
             }
         }
+    }
+
+    private func setupSearchBinding() {
+        // Observe search text with debounce
+        $searchText
+            .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.performSearch()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func performSearch() {
+        guard !searchText.isEmpty else {
+            filteredEvents = []
+            filteredSections = []
+            return
+        }
+
+        // Filter locally from allEvents (faster than API call)
+        let filtered = allEvents.filter { event in
+            event.name.localizedCaseInsensitiveContains(searchText) ||
+            event.company.localizedCaseInsensitiveContains(searchText) ||
+            event.location.localizedCaseInsensitiveContains(searchText)
+        }
+
+        filteredEvents = filtered
+        filteredSections = filtered.groupedByDate()
+    }
+
+    func searchEvents() {
+        performSearch()
     }
 }
 

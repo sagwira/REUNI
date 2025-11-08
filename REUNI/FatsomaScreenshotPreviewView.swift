@@ -336,8 +336,12 @@ struct FatsomaScreenshotPreviewView: View {
         // Parse last entry from extracted data
         let lastEntryInfo = ocrService.parseLastEntry(from: extractedData)
 
+        // Get seller's Stripe account ID
+        let stripeAccountId = StripeSellerService.shared.stripeAccountId
+
         APIService.shared.uploadFatsomaScreenshotTicket(
             userId: userId.uuidString,
+            stripeAccountId: stripeAccountId,
             event: event,
             ticket: ticket,
             quantity: quantity,

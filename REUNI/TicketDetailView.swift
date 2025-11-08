@@ -15,8 +15,176 @@ struct TicketDetailView: View {
     @State private var screenshotImage: UIImage?
     @State private var isLoadingImage = true
     @State private var showingSaveConfirmation = false
+    @State private var scale: CGFloat = 1.0
+    @State private var lastScale: CGFloat = 1.0
+    @State private var showEventDetails = false
 
     var body: some View {
+        ZStack {
+            // Background
+            Color.black
+                .ignoresSafeArea()
+
+            // Ticket Screenshot (PDF-like view, like Trainline)
+            VStack(spacing: 0) {
+                if isLoadingImage {
+                    VStack(spacing: 20) {
+                        ProgressView()
+                            .tint(.white)
+                        Text("Loading your ticket...")
+                            .foregroundColor(.white.opacity(0.8))
+                            .font(.system(size: 16))
+                    }
+                } else if let image = screenshotImage {
+                    // Full-screen ticket image with zoom (Trainline style)
+                    GeometryReader { geometry in
+                        ScrollView([.horizontal, .vertical], showsIndicators: false) {
+                            Image(uiImage: image)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: geometry.size.width, height: geometry.size.height)
+                                .scaleEffect(scale)
+                                .gesture(
+                                    MagnificationGesture()
+                                        .onChanged { value in
+                                            scale = lastScale * value
+                                        }
+                                        .onEnded { _ in
+                                            lastScale = scale
+                                            // Limit zoom range
+                                            if scale < 1.0 {
+                                                withAnimation {
+                                                    scale = 1.0
+                                                    lastScale = 1.0
+                                                }
+                                            } else if scale > 4.0 {
+                                                withAnimation {
+                                                    scale = 4.0
+                                                    lastScale = 4.0
+                                                }
+                                            }
+                                        }
+                                )
+                                .onTapGesture(count: 2) {
+                                    // Double tap to reset zoom
+                                    withAnimation {
+                                        scale = 1.0
+                                        lastScale = 1.0
+                                    }
+                                }
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                } else {
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 50))
+                            .foregroundColor(.orange)
+                        Text("Ticket screenshot not available")
+                            .font(.system(size: 18))
+                            .foregroundColor(.white)
+                        Text("Please contact the seller")
+                            .font(.system(size: 14))
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                }
+            }
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: {
+                    dismiss()
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 18, weight: .semibold))
+                        Text("My Purchases")
+                            .font(.system(size: 17))
+                    }
+                    .foregroundColor(.white)
+                }
+            }
+
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    Button(action: saveToPhotos) {
+                        Label("Save to Photos", systemImage: "square.and.arrow.down")
+                    }
+                    .disabled(screenshotImage == nil)
+
+                    Button(action: { showingShareSheet = true }) {
+                        Label("Share Ticket", systemImage: "square.and.arrow.up")
+                    }
+                    .disabled(screenshotImage == nil)
+
+                    Button(action: { showEventDetails = true }) {
+                        Label("Event Details", systemImage: "info.circle")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 18))
+                        .foregroundColor(.white)
+                }
+            }
+        }
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar(.hidden, for: .tabBar)
+        .task {
+            await loadTicketScreenshot()
+        }
+        .sheet(isPresented: $showingShareSheet) {
+            if let image = screenshotImage {
+                ShareSheet(items: [image])
+            }
+        }
+        .sheet(isPresented: $showEventDetails) {
+            EventDetailsSheet(ticket: ticket)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+        .alert("Saved!", isPresented: $showingSaveConfirmation) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Ticket screenshot saved to your Photos")
+        }
+    }
+
+    // MARK: - Load Ticket Screenshot
+
+    private func loadTicketScreenshot() async {
+        guard let screenshotUrl = ticket.ticketScreenshotUrl, !screenshotUrl.isEmpty else {
+            isLoadingImage = false
+            return
+        }
+
+        guard let imageUrl = URL(string: screenshotUrl) else {
+            isLoadingImage = false
+            return
+        }
+
+        do {
+            let (data, _) = try await URLSession.shared.data(from: imageUrl)
+            await MainActor.run {
+                isLoadingImage = false
+                if let image = UIImage(data: data) {
+                    screenshotImage = image
+                } else {
+                    print("❌ Failed to create image from data")
+                }
+            }
+        } catch {
+            print("❌ Failed to load ticket screenshot: \(error.localizedDescription)")
+            await MainActor.run {
+                isLoadingImage = false
+            }
+        }
+    }
+
+    // MARK: - Old Body (replaced with PDF-like view)
+
+    private var oldDetailedView: some View {
         ScrollView {
             VStack(spacing: 0) {
                 // Header with event image
@@ -257,6 +425,22 @@ struct TicketDetailView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: {
+                    dismiss()
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 18, weight: .semibold))
+                        Text("My Purchases")
+                            .font(.system(size: 17))
+                    }
+                    .foregroundColor(.primary)
+                }
+            }
+        }
         .sheet(isPresented: $showingShareSheet) {
             if let image = screenshotImage {
                 ShareSheet(items: [image])
@@ -391,6 +575,140 @@ struct TicketScreenshotView: View {
                 }
             }
         }.resume()
+    }
+}
+
+// MARK: - Event Details Sheet
+
+struct EventDetailsSheet: View {
+    let ticket: UserTicket
+    @Environment(\.dismiss) var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // Event Header
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(ticket.eventName ?? "Event")
+                            .font(.system(size: 24, weight: .bold))
+
+                        if let location = ticket.eventLocation {
+                            HStack(spacing: 8) {
+                                Image(systemName: "mappin.circle.fill")
+                                    .foregroundColor(.red)
+                                Text(location)
+                                    .font(.system(size: 16))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+
+                        if let dateString = ticket.eventDate {
+                            HStack(spacing: 8) {
+                                Image(systemName: "calendar")
+                                    .foregroundColor(.red)
+                                Text(formatEventDate(dateString))
+                                    .font(.system(size: 16))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+
+                        if let ticketType = ticket.ticketType {
+                            HStack(spacing: 8) {
+                                Image(systemName: "ticket.fill")
+                                    .foregroundColor(.red)
+                                Text(ticketType)
+                                    .font(.system(size: 16))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+
+                    Divider()
+
+                    // Purchase Details
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Purchase Details")
+                            .font(.system(size: 20, weight: .semibold))
+
+                        if let sellerUsername = ticket.sellerUsername {
+                            HStack {
+                                Text("Purchased from:")
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text("@\(sellerUsername)")
+                                    .fontWeight(.medium)
+                            }
+                        }
+
+                        if let sellerUniversity = ticket.sellerUniversity {
+                            HStack {
+                                Text("University:")
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text(sellerUniversity)
+                                    .fontWeight(.medium)
+                            }
+                        }
+
+                        if let totalPrice = ticket.totalPrice {
+                            HStack {
+                                Text("Price Paid:")
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text(String(format: "£%.2f", totalPrice))
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.green)
+                            }
+                        }
+
+                        HStack {
+                            Text("Purchase Date:")
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text(formatPurchaseDate(ticket.createdAt))
+                                .fontWeight(.medium)
+                        }
+                    }
+                }
+                .padding(20)
+            }
+            .navigationTitle("Event Details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+
+    private func formatEventDate(_ dateString: String) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withFullDate, .withTime, .withColonSeparatorInTime]
+
+        if let date = formatter.date(from: dateString) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.dateStyle = .full
+            displayFormatter.timeStyle = .short
+            return displayFormatter.string(from: date)
+        }
+        return dateString
+    }
+
+    private func formatPurchaseDate(_ dateString: String) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        if let date = formatter.date(from: dateString) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.dateStyle = .medium
+            displayFormatter.timeStyle = .short
+            return displayFormatter.string(from: date)
+        }
+        return dateString
     }
 }
 

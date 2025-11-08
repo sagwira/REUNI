@@ -27,6 +27,75 @@ class APIService {
         }
     }
 
+    /// Fetch Fatsoma events with optional date range filtering, ordered by date and time
+    /// BETA: Shows only priority venues and events within next 14 days
+    func fetchFatsomaEvents(
+        startDate: Date? = nil,
+        endDate: Date? = nil,
+        completion: @escaping @Sendable (Result<[FatsomaEvent], Error>) -> Void
+    ) {
+        Task {
+            do {
+                // BETA TESTING: Filter to priority venues only
+                let priorityVenues = [
+                    "Function Next Door",
+                    "THE CELL",
+                    "Stealth",
+                    "Oz Bar",
+                    "House of Disco",
+                    "Cucamara",
+                    "Bodega",
+                    "Rock City",
+                    "Unit 13",
+                    "The Mixologist",
+                    "Outwork Events"
+                ]
+
+                // BETA TESTING: Default to next 14 days if no dates provided
+                let now = Date()
+                let fourteenDaysFromNow = Calendar.current.date(byAdding: .day, value: 14, to: now)!
+
+                let startFilterDate = startDate ?? now
+                let endFilterDate = endDate ?? fourteenDaysFromNow
+
+                var query = supabase
+                    .from("fatsoma_events")
+                    .select("""
+                        *,
+                        fatsoma_tickets(*)
+                    """)
+
+                // Date filtering: show events from now to 14 days ahead
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withFullDate]
+
+                query = query.gte("event_date", value: formatter.string(from: startFilterDate))
+                query = query.lte("event_date", value: formatter.string(from: endFilterDate))
+
+                let response: [SupabaseFatsomaEvent] = try await query
+                    .order("event_date", ascending: true)
+                    .order("event_time", ascending: true)
+                    .execute()
+                    .value
+
+                // BETA: Filter by priority venues on client side
+                let allEvents = response.map { $0.toFatsomaEvent() }
+                let filteredEvents = allEvents.filter { event in
+                    priorityVenues.contains { venue in
+                        event.company.localizedCaseInsensitiveContains(venue)
+                    }
+                }
+
+                print("📊 Fetched \(allEvents.count) events, filtered to \(filteredEvents.count) priority venue events")
+
+                completion(.success(filteredEvents))
+            } catch {
+                print("❌ Error fetching Fatsoma events: \(error)")
+                completion(.failure(error))
+            }
+        }
+    }
+
     func fetchEvent(eventId: String, completion: @escaping @Sendable (Result<FatsomaEvent, Error>) -> Void) {
         Task {
             do {
@@ -55,14 +124,39 @@ class APIService {
     func searchEvents(query: String, completion: @escaping @Sendable (Result<[FatsomaEvent], Error>) -> Void) {
         Task {
             do {
-                let response: [SupabaseFatsomaEvent] = try await supabase
+                // BETA TESTING: Filter to priority venues only
+                let priorityVenues = [
+                    "Function Next Door",
+                    "THE CELL",
+                    "Stealth",
+                    "Oz Bar",
+                    "House of Disco",
+                    "Cucamara",
+                    "Bodega",
+                    "Rock City",
+                    "Unit 13",
+                    "The Mixologist",
+                    "Outwork Events"
+                ]
+
+                // BETA TESTING: Only show events within next 14 days
+                let now = Date()
+                let fourteenDaysFromNow = Calendar.current.date(byAdding: .day, value: 14, to: now)!
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withFullDate]
+
+                let searchQuery = supabase
                     .from("fatsoma_events")
                     .select("""
                         *,
                         fatsoma_tickets(*)
                     """)
                     .ilike("name", pattern: "\(query)%")
+                    .gte("event_date", value: formatter.string(from: now))
+                    .lte("event_date", value: formatter.string(from: fourteenDaysFromNow))
                     .order("name", ascending: true)
+
+                let response: [SupabaseFatsomaEvent] = try await searchQuery
                     .execute()
                     .value
 
@@ -77,6 +171,8 @@ class APIService {
                             fatsoma_tickets(*)
                         """)
                         .ilike("name", pattern: "%\(query)%")
+                        .gte("event_date", value: formatter.string(from: now))
+                        .lte("event_date", value: formatter.string(from: fourteenDaysFromNow))
                         .order("name", ascending: true)
                         .execute()
                         .value
@@ -84,7 +180,16 @@ class APIService {
                     events = fallbackResponse.map { $0.toFatsomaEvent() }
                 }
 
-                completion(.success(events))
+                // BETA: Filter by priority venues
+                let filteredEvents = events.filter { event in
+                    priorityVenues.contains { venue in
+                        event.company.localizedCaseInsensitiveContains(venue)
+                    }
+                }
+
+                print("📊 Search '\(query)': found \(events.count) events, filtered to \(filteredEvents.count) priority venue events")
+
+                completion(.success(filteredEvents))
             } catch let DecodingError.keyNotFound(key, context) {
                 print("❌ Missing key '\(key.stringValue)' – \(context.debugDescription)")
                 completion(.failure(DecodingError.keyNotFound(key, context)))
@@ -286,14 +391,18 @@ class APIService {
                     let event_name: String
                     let event_date: String
                     let event_location: String
+                    let event_image_url: String?
                     let organizer_id: String?
                     let organizer_name: String
                     let ticket_type: String
+                    let ticket_source: String
+                    let city: String?
                     let quantity: Int
-                    let price_per_ticket: Double
+                    let price_paid: Double
                     let total_price: Double
                     let currency: String
                     let status: String
+                    let is_listed: Bool
                 }
 
                 let ticketData = UserTicketInsert(
@@ -302,14 +411,18 @@ class APIService {
                     event_name: event.name,
                     event_date: event.date,
                     event_location: event.location,
+                    event_image_url: event.imageUrl,
                     organizer_id: event.organizerId,
                     organizer_name: event.company,
                     ticket_type: ticket.ticketType,
+                    ticket_source: "fatsoma",
+                    city: event.location,
                     quantity: quantity,
-                    price_per_ticket: pricePerTicket,
+                    price_paid: pricePerTicket,
                     total_price: totalPrice,
                     currency: ticket.currency,
-                    status: "available"
+                    status: "available",
+                    is_listed: true
                 )
 
                 try await supabase
@@ -361,6 +474,7 @@ class APIService {
 
     func uploadFatsomaScreenshotTicket(
         userId: String,
+        stripeAccountId: String?,
         event: FatsomaEvent,
         ticket: FatsomaTicket,
         quantity: Int,
@@ -380,19 +494,23 @@ class APIService {
 
                 struct FatsomaScreenshotTicketInsert: Encodable {
                     let user_id: String
+                    let stripe_account_id: String?  // Stripe account that receives payment
                     let event_id: String
                     let event_name: String
                     let event_date: String
                     let event_location: String
+                    let event_image_url: String?  // Public event promotional image
                     let organizer_id: String?
                     let organizer_name: String
                     let ticket_type: String
+                    let ticket_source: String
+                    let city: String?
                     let quantity: Int
-                    let price_per_ticket: Double
+                    let price_paid: Double
                     let total_price: Double
                     let currency: String
                     let status: String
-                    let event_image_url: String?  // Public event promotional image
+                    let is_listed: Bool
                     let ticket_screenshot_url: String  // Private ticket screenshot
                     let last_entry_type: String?
                     let last_entry_label: String?
@@ -403,19 +521,23 @@ class APIService {
 
                 let ticketData = FatsomaScreenshotTicketInsert(
                     user_id: userId,
+                    stripe_account_id: stripeAccountId,  // Lock in Stripe account at upload time
                     event_id: event.eventId,
                     event_name: event.name,
                     event_date: event.date,
                     event_location: event.location,
+                    event_image_url: event.imageUrl,  // Fatsoma event promotional image
                     organizer_id: event.organizerId,
                     organizer_name: event.company,
                     ticket_type: ticketType ?? ticket.ticketType,
+                    ticket_source: "fatsoma",
+                    city: event.location,
                     quantity: quantity,
-                    price_per_ticket: pricePerTicket,
+                    price_paid: pricePerTicket,
                     total_price: totalPrice,
                     currency: ticket.currency,
                     status: "available",
-                    event_image_url: event.imageUrl,  // Fatsoma event promotional image
+                    is_listed: true,
                     ticket_screenshot_url: screenshotUrl,  // User's ticket screenshot
                     last_entry_type: lastEntryType,
                     last_entry_label: lastEntryLabel,
@@ -474,15 +596,18 @@ class APIService {
                     let event_name: String
                     let event_date: String
                     let event_location: String
+                    let event_image_url: String?  // Public event promotional image
                     let organizer_id: String?
                     let organizer_name: String
                     let ticket_type: String
+                    let ticket_source: String
+                    let city: String?
                     let quantity: Int
-                    let price_per_ticket: Double
+                    let price_paid: Double
                     let total_price: Double
                     let currency: String
                     let status: String
-                    let event_image_url: String?  // Public event promotional image
+                    let is_listed: Bool
                     let ticket_screenshot_url: String?  // Private ticket screenshot (nil for Fixr transfers)
                     let last_entry_type: String?
                     let last_entry_label: String?
@@ -497,15 +622,18 @@ class APIService {
                     event_name: event.name,
                     event_date: eventDateString,
                     event_location: event.location,
+                    event_image_url: event.imageUrl,  // Fixr event promotional image
                     organizer_id: nil,
                     organizer_name: event.company,
                     ticket_type: event.ticketType,
+                    ticket_source: "fixr",
+                    city: event.location,
                     quantity: 1,
-                    price_per_ticket: pricePerTicket,
+                    price_paid: pricePerTicket,
                     total_price: pricePerTicket,
                     currency: "GBP",
                     status: "available",
-                    event_image_url: event.imageUrl,  // Fixr event promotional image
+                    is_listed: true,
                     ticket_screenshot_url: nil,  // No screenshot for Fixr transfers
                     last_entry_type: event.lastEntryType,
                     last_entry_label: event.lastEntryLabel,
@@ -531,14 +659,19 @@ class APIService {
     func fetchMarketplaceTickets(completion: @escaping @Sendable (Result<[UserTicket], Error>) -> Void) {
         Task {
             do {
-                // Use view with dynamic profile data (username/profile picture updated live)
+                // TEMPORARY FIX: Use user_tickets table directly until view is updated
+                // IMPORTANT: Only show tickets linked to Stripe accounts (can receive payments)
                 let response: [UserTicket] = try await supabase
-                    .from("user_tickets_with_profiles")
+                    .from("user_tickets")
                     .select("*")
-                    .eq("status", value: "available")
+                    .eq("is_listed", value: true)
+                    .eq("sale_status", value: "available")  // Only available tickets
+                    .not("stripe_account_id", operator: .is, value: "null")  // Must have Stripe account
                     .order("created_at", ascending: false)
                     .execute()
                     .value
+
+                print("✅ Fetched \(response.count) marketplace tickets (all with Stripe accounts)")
 
                 completion(.success(response))
             } catch {
@@ -552,16 +685,20 @@ class APIService {
         Task {
             do {
                 print("🔍 [APIService] Fetching tickets for user_id: \(userId)")
-                // Use view with dynamic profile data (username/profile picture updated live)
-                let response: [UserTicket] = try await supabase
-                    .from("user_tickets_with_profiles")
+                // Fetch all user tickets first
+                let allTickets: [UserTicket] = try await supabase
+                    .from("user_tickets")
                     .select("*")
                     .eq("user_id", value: userId)
                     .order("created_at", ascending: false)
                     .execute()
                     .value
 
-                print("✅ [APIService] Found \(response.count) tickets for user \(userId)")
+                // Filter out purchased tickets (those should only appear in "My Purchases")
+                // Only show original tickets the user uploaded/owns
+                let response = allTickets.filter { $0.purchasedFromSellerId == nil }
+
+                print("✅ [APIService] Found \(allTickets.count) total tickets, \(response.count) original tickets (excluding purchased)")
                 completion(.success(response))
             } catch {
                 print("❌ [APIService] Error fetching user tickets for \(userId): \(error)")
@@ -573,6 +710,38 @@ class APIService {
     // Alias for clarity - fetches current user's listings
     func fetchMyTickets(userId: String, completion: @escaping @Sendable (Result<[UserTicket], Error>) -> Void) {
         fetchUserTickets(userId: userId, completion: completion)
+    }
+
+    // MARK: - Purchased Tickets
+    func fetchPurchasedTickets(userId: String, completion: @escaping @Sendable (Result<[UserTicket], Error>) -> Void) {
+        Task {
+            do {
+                print("🔍 [APIService] Fetching purchased tickets for user_id: \(userId)")
+                // Fetch tickets where this user is the owner (buyer received the ticket)
+                // These are tickets created by the webhook when a purchase completed
+                // Query base table directly to avoid view cache issues
+                // Fetch ALL user tickets first, then filter in Swift for purchased ones
+                // This avoids the .not() filter issue with UUID columns
+                let allTickets: [UserTicket] = try await supabase
+                    .from("user_tickets")
+                    .select("*")
+                    .eq("user_id", value: userId)
+                    .order("created_at", ascending: false)
+                    .execute()
+                    .value
+
+                // Filter in Swift to only include tickets with purchased_from_seller_id set
+                let response = allTickets.filter { $0.purchasedFromSellerId != nil }
+
+                print("✅ [APIService] Total tickets: \(allTickets.count), Purchased: \(response.count)")
+
+                print("✅ [APIService] Found \(response.count) purchased tickets for user \(userId)")
+                completion(.success(response))
+            } catch {
+                print("❌ [APIService] Error fetching purchased tickets: \(error)")
+                completion(.failure(error))
+            }
+        }
     }
 
     func deleteUserTicket(ticketId: String, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {

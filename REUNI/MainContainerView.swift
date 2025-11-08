@@ -71,21 +71,38 @@ struct MainContainerView: View {
 
             let pendingCount = pendingOffersResponse.count ?? 0
 
-            // Fetch accepted offers (as buyer)
+            // Fetch accepted offers (as buyer) - only count non-expired offers
+            // Note: We fetch all and filter in-app since Supabase doesn't support > operator in count queries well
             let acceptedOffersResponse = try await supabase
                 .from("ticket_offers")
-                .select("id", head: true, count: .exact)
+                .select("expires_at")
                 .eq("buyer_id", value: userId.uuidString)
                 .eq("status", value: "accepted")
                 .execute()
 
-            let acceptedCount = acceptedOffersResponse.count ?? 0
+            // Decode and filter expired offers
+            struct OfferExpiry: Codable {
+                let expires_at: String
+            }
+            let decoder = JSONDecoder()
+            let offers = (try? decoder.decode([OfferExpiry].self, from: acceptedOffersResponse.data)) ?? []
+            let now = Date()
+            let acceptedCount = offers.filter { offer in
+                guard let expiresAt = parseISO8601Date(offer.expires_at) else { return true }
+                return expiresAt > now
+            }.count
 
             notificationCount = pendingCount + acceptedCount
         } catch {
             print("❌ Error loading notification count: \(error)")
             notificationCount = 0
         }
+    }
+
+    private func parseISO8601Date(_ dateString: String) -> Date? {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.date(from: dateString) ?? ISO8601DateFormatter().date(from: dateString)
     }
 }
 

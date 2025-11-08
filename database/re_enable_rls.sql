@@ -1,0 +1,2 @@
+-- Re-enable RLS
+ALTER TABLE user_tickets ENABLE ROW LEVEL SECURITY;

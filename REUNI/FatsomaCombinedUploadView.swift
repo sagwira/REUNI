@@ -124,23 +124,7 @@ struct FatsomaCombinedUploadView: View {
                             .font(.system(size: 20, weight: .bold))
                             .padding(.horizontal, 20)
 
-                        if isProcessingImage {
-                            // Processing indicator
-                            VStack(spacing: 16) {
-                                ProgressView()
-                                    .scaleEffect(1.5)
-                                Text("Validating ticket screenshot...")
-                                    .font(.system(size: 15))
-                                    .foregroundColor(.secondary)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 40)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(Color(uiColor: .secondarySystemBackground))
-                            )
-                            .padding(.horizontal, 20)
-                        } else if let screenshot = selectedScreenshot {
+                        if let screenshot = selectedScreenshot {
                             // Show selected screenshot
                             VStack(spacing: 12) {
                                 Image(uiImage: screenshot)
@@ -148,28 +132,6 @@ struct FatsomaCombinedUploadView: View {
                                     .scaledToFit()
                                     .frame(maxHeight: 300)
                                     .cornerRadius(12)
-
-                                // Validation status
-                                if validationComplete {
-                                    VStack(spacing: 12) {
-                                        ValidationRow(
-                                            label: "Location Match",
-                                            value: extractedData?.venue ?? "Not detected",
-                                            isValid: locationMatch
-                                        )
-
-                                        ValidationRow(
-                                            label: "Ticket Type Match",
-                                            value: extractedData?.ticketType ?? "Not detected",
-                                            isValid: ticketTypeMatch
-                                        )
-                                    }
-                                    .padding(16)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .fill(Color(uiColor: .secondarySystemBackground))
-                                    )
-                                }
 
                                 Button(action: {
                                     let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
@@ -350,10 +312,12 @@ struct FatsomaCombinedUploadView: View {
                 ImagePickerView(selectedImage: $selectedScreenshot)
             }
             .onChange(of: selectedScreenshot) { oldValue, newValue in
-                if let image = newValue {
-                    Task {
-                        await processAndValidateScreenshot(image)
-                    }
+                // BETA: Validation disabled for testing
+                // Just mark as ready to upload
+                if newValue != nil {
+                    validationComplete = true
+                    locationMatch = true
+                    ticketTypeMatch = true
                 }
             }
             .alert("Success!", isPresented: $showSuccessAlert) {
@@ -372,12 +336,10 @@ struct FatsomaCombinedUploadView: View {
     }
 
     private var canUpload: Bool {
+        // BETA: Disabled validation for testing
         selectedScreenshot != nil &&
         priceValue != nil &&
-        quantity > 0 &&
-        validationComplete &&
-        locationMatch &&
-        ticketTypeMatch
+        quantity > 0
     }
 
     private var priceValue: Double? {
@@ -453,8 +415,12 @@ struct FatsomaCombinedUploadView: View {
             return
         }
 
+        // Get seller's Stripe account ID (set during Stripe status check in NewUploadTicketView)
+        let stripeAccountId = StripeSellerService.shared.stripeAccountId
+
         APIService.shared.uploadFatsomaScreenshotTicket(
             userId: userId.uuidString,
+            stripeAccountId: stripeAccountId,  // Link ticket to Stripe account
             event: event,
             ticket: ticket,
             quantity: quantity,

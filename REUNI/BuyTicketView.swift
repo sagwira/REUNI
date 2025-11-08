@@ -10,6 +10,7 @@ import SwiftUI
 struct BuyTicketView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) var colorScheme
+    @Bindable var authManager: AuthenticationManager
 
     let event: Event
 
@@ -17,6 +18,7 @@ struct BuyTicketView: View {
     @State private var showSuccess = false
     @State private var showError = false
     @State private var errorMessage = ""
+    @State private var showMakeOffer = false
 
     private var backgroundColor: Color {
         Color(red: 0.91, green: 0.91, blue: 0.91) // #e8e8e8
@@ -63,45 +65,12 @@ struct BuyTicketView: View {
 
                     ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 24) {
-                            // Event Image and Title
-                            HStack(alignment: .top, spacing: 16) {
-                                // Event Image (small square box)
-                                if let imageUrl = event.ticketImageUrl, let url = URL(string: imageUrl) {
-                                    AsyncImage(url: url) { image in
-                                        image
-                                            .resizable()
-                                            .scaledToFill()
-                                            .frame(width: 80, height: 80)
-                                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                                    } placeholder: {
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .fill(Color.gray.opacity(0.2))
-                                            .frame(width: 80, height: 80)
-                                            .overlay(
-                                                Image(systemName: "ticket")
-                                                    .font(.system(size: 24))
-                                                    .foregroundStyle(.secondary)
-                                            )
-                                    }
-                                } else {
-                                    // Fallback placeholder
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .fill(Color.gray.opacity(0.2))
-                                        .frame(width: 80, height: 80)
-                                        .overlay(
-                                            Image(systemName: "ticket")
-                                                .font(.system(size: 24))
-                                                .foregroundStyle(.secondary)
-                                        )
-                                }
-
-                                // Event Title
-                                Text(event.title)
-                                    .font(.system(size: 28, weight: .bold))
-                                    .foregroundStyle(.primary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            }
+                            // Event Title (ticket image removed for security)
+                            Text(event.title)
+                                .font(.system(size: 28, weight: .bold))
+                                .foregroundStyle(.primary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, alignment: .leading)
 
                             // Seller Section
                             VStack(alignment: .leading, spacing: 12) {
@@ -308,7 +277,7 @@ struct BuyTicketView: View {
                         .padding(.bottom, 120) // Space for fixed button
                     }
 
-                // Fixed Checkout Button at Bottom
+                // Fixed Split Buttons at Bottom (Make Offer | Buy Now)
                 VStack(spacing: 12) {
                     Divider()
 
@@ -326,29 +295,57 @@ struct BuyTicketView: View {
                     }
                     .padding(.horizontal, 20)
 
-                    // Checkout Button
-                    Button(action: {
-                        handleCheckout()
-                    }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "creditcard.fill")
-                                .font(.system(size: 18))
+                    // Split Buttons: Make Offer (green) | Buy Now (red)
+                    HStack(spacing: 12) {
+                        // Make Offer Button (Green)
+                        Button(action: {
+                            showMakeOffer = true
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "tag.fill")
+                                    .font(.system(size: 16))
 
-                            Text("Checkout")
-                                .font(.system(size: 18, weight: .bold))
-                        }
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 56)
-                        .background(
-                            LinearGradient(
-                                colors: [checkoutButtonColor, checkoutButtonColor.opacity(0.85)],
-                                startPoint: .leading,
-                                endPoint: .trailing
+                                Text("Make Offer")
+                                    .font(.system(size: 16, weight: .bold))
+                            }
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color.green, Color.green.opacity(0.85)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
                             )
-                        )
-                        .cornerRadius(16)
-                        .shadow(color: checkoutButtonColor.opacity(0.4), radius: 12, x: 0, y: 6)
+                            .cornerRadius(16)
+                            .shadow(color: Color.green.opacity(0.3), radius: 10, x: 0, y: 4)
+                        }
+
+                        // Buy Now Button (Red)
+                        Button(action: {
+                            handleCheckout()
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "creditcard.fill")
+                                    .font(.system(size: 16))
+
+                                Text("Buy Now")
+                                    .font(.system(size: 16, weight: .bold))
+                            }
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                            .background(
+                                LinearGradient(
+                                    colors: [checkoutButtonColor, checkoutButtonColor.opacity(0.85)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .cornerRadius(16)
+                            .shadow(color: checkoutButtonColor.opacity(0.4), radius: 10, x: 0, y: 4)
+                        }
                     }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 32)
@@ -370,7 +367,23 @@ struct BuyTicketView: View {
             Text(errorMessage)
         }
         .fullScreenCover(isPresented: $showPayment) {
-            PaymentView(totalAmount: event.price, onPaymentComplete: handlePaymentComplete)
+            PaymentView(
+                authManager: authManager,
+                event: event,
+                totalAmount: event.price,
+                onPaymentComplete: handlePaymentComplete
+            )
+        }
+        .sheet(isPresented: $showMakeOffer) {
+            MakeOfferSheet(
+                authManager: authManager,
+                event: event,
+                onOfferSubmitted: { offerId in
+                    print("✅ Offer submitted: \(offerId)")
+                    // Show success message
+                    dismiss()
+                }
+            )
         }
     }
 
@@ -386,19 +399,20 @@ struct BuyTicketView: View {
         showPayment = true
     }
 
-    private func handlePaymentComplete() {
+    private func handlePaymentComplete(transactionId: String) {
         // Payment was successful
+        print("✅ Payment completed for transaction: \(transactionId)")
         showSuccess = true
 
-        // TODO: Implement actual post-payment logic
-        // - Create transaction in database
-        // - Update ticket availability
-        // - Send notifications
+        // Webhook will handle:
+        // - Update transaction status in database
+        // - Mark ticket as sold
+        // - Send notifications to buyer and seller
     }
 
     private func formatDate(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "EEE, MMM d, yyyy"
+        formatter.dateFormat = "EEE, dd MMM, yyyy"
         return formatter.string(from: date)
     }
 
@@ -410,8 +424,8 @@ struct BuyTicketView: View {
 
     private func formatLastEntry(_ date: Date) -> String {
         let formatter = DateFormatter()
-        // Show day, date and time (e.g., "Wed, 05 Nov, 00:00")
-        formatter.dateFormat = "EEE, dd MMM, HH:mm"
+        // Show only time in 12-hour format (e.g., "11:30pm")
+        formatter.dateFormat = "h:mma"
         return formatter.string(from: date)
     }
 }
@@ -477,29 +491,32 @@ struct DetailRow: View {
 }
 
 #Preview {
-    BuyTicketView(event: Event(
-        id: UUID(),
-        title: "Spring Formal Dance",
-        userId: UUID(),
-        organizerId: UUID(),
-        organizerUsername: "emma_events",
-        organizerProfileUrl: nil,
-        organizerVerified: true,
-        organizerUniversity: "University of Manchester",
-        organizerDegree: "Business Management",
-        eventDate: Date(),
-        lastEntry: Date(),
-        price: 650,
-        originalPrice: 700,
-        availableTickets: 2,
-        city: "Manchester",
-        ageRestriction: 18,
-        ticketSource: "Fatsoma",
-        eventImageUrl: "https://example.com/event.jpg",
-        ticketImageUrl: nil,
-        createdAt: Date(),
-        ticketType: nil,
-        lastEntryType: nil,
-        lastEntryLabel: nil
-    ))
+    BuyTicketView(
+        authManager: AuthenticationManager(),
+        event: Event(
+            id: UUID(),
+            title: "Spring Formal Dance",
+            userId: UUID(),
+            organizerId: UUID(),
+            organizerUsername: "emma_events",
+            organizerProfileUrl: nil,
+            organizerVerified: true,
+            organizerUniversity: "University of Manchester",
+            organizerDegree: "Business Management",
+            eventDate: Date(),
+            lastEntry: Date(),
+            price: 650,
+            originalPrice: 700,
+            availableTickets: 2,
+            city: "Manchester",
+            ageRestriction: 18,
+            ticketSource: "Fatsoma",
+            eventImageUrl: "https://example.com/event.jpg",
+            ticketImageUrl: nil,
+            createdAt: Date(),
+            ticketType: nil,
+            lastEntryType: nil,
+            lastEntryLabel: nil
+        )
+    )
 }

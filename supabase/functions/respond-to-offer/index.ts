@@ -113,15 +113,15 @@ serve(async (req) => {
       // await sendPushNotification(offer.buyer_id, {
       //   type: "offer_accepted",
       //   title: "✅ Your Offer Was Accepted!",
-      //   body: `Pay £${offer.offer_amount} within 24 hours to secure your ticket`,
+      //   body: `Pay £${offer.offer_amount} within 12 hours to secure your ticket`,
       //   data: { offer_id, ticket_id: offer.ticket_id },
       // });
 
-      console.log(`✅ Offer accepted! Buyer has 24 hours to pay. Ticket remains available for others.`);
+      console.log(`✅ Offer accepted! Buyer has 12 hours to pay. Ticket remains available for others.`);
 
       return new Response(JSON.stringify({
         success: true,
-        message: "Offer accepted! The buyer has 24 hours to complete payment. The ticket remains available until payment is initiated.",
+        message: "Offer accepted! The buyer has 12 hours to complete payment. The ticket remains available until payment is initiated.",
         offer: {
           ...offer,
           status: "accepted",
