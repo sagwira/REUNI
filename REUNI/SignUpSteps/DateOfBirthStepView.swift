@@ -20,63 +20,65 @@ struct DateOfBirthStepView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
+        ScrollView {
+            VStack(spacing: 0) {
+                // Header
+                VStack(spacing: 16) {
+                    Text("🎂")
+                        .font(.system(size: 80))
+                        .padding(.top, 40)
 
-            // Header
-            VStack(spacing: 12) {
-                Text("🎂")
-                    .font(.system(size: 60))
+                    Text("When's your birthday?")
+                        .font(.system(size: 34, weight: .bold))
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
 
-                Text("When's your birthday?")
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundStyle(.white)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-
-                Text("You must be 18 or older to join")
-                    .font(.system(size: 17))
-                    .foregroundStyle(.white.opacity(0.7))
-                    .multilineTextAlignment(.center)
-            }
-            .padding(.bottom, 48)
-
-            // Date Picker
-            VStack(spacing: 20) {
-                DatePicker(
-                    "",
-                    selection: $flowData.dateOfBirth,
-                    in: minimumDate...maximumDate,
-                    displayedComponents: .date
-                )
-                .datePickerStyle(.wheel)
-                .labelsHidden()
-                .colorScheme(.light)
-                .background(.white)
-                .cornerRadius(12)
-            }
-            .padding(.horizontal, 32)
-
-            Spacer()
-
-            // Next Button
-            Button(action: onNext) {
-                HStack {
-                    Text("Continue")
-                        .font(.system(size: 18, weight: .semibold))
-
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 16, weight: .semibold))
+                    Text("You must be 18 or older to join")
+                        .font(.system(size: 17))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
                 }
-                .foregroundStyle(.black)
-                .frame(maxWidth: .infinity)
-                .frame(height: 56)
-                .background(.white)
-                .cornerRadius(12)
+                .padding(.bottom, 48)
+
+                // Date Picker
+                VStack(spacing: 20) {
+                    DatePicker(
+                        "",
+                        selection: $flowData.dateOfBirth,
+                        in: minimumDate...maximumDate,
+                        displayedComponents: .date
+                    )
+                    .datePickerStyle(.wheel)
+                    .labelsHidden()
+                    .colorScheme(.light)
+                    .background(Color(uiColor: .secondarySystemBackground))
+                    .cornerRadius(12)
+                }
+                .padding(.horizontal, 32)
+
+                Spacer(minLength: 40)
+
+                // Next Button
+                Button(action: onNext) {
+                    HStack {
+                        Text("Continue")
+                            .font(.system(size: 18, weight: .semibold))
+
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 16, weight: .semibold))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .background(Color(red: 0.4, green: 0.0, blue: 0.0))
+                    .cornerRadius(12)
+                }
+                .padding(.horizontal, 32)
+                .padding(.bottom, 48)
             }
-            .padding(.horizontal, 32)
-            .padding(.bottom, 48)
         }
+        .background(Color(uiColor: .systemBackground))
     }
 }
 

@@ -22,110 +22,112 @@ struct OTPStepView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
-
-            // Header
-            VStack(spacing: 12) {
-                Text("✉️")
-                    .font(.system(size: 60))
-
-                Text("Enter your code")
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundStyle(.white)
-                    .multilineTextAlignment(.center)
-
-                Text("We sent a 6-digit code to")
-                    .font(.system(size: 17))
-                    .foregroundStyle(.white.opacity(0.7))
-
-                Text(flowData.email)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
-            .padding(.bottom, 48)
-
-            // OTP Input
+        ScrollView {
             VStack(spacing: 0) {
-                HStack(spacing: 12) {
-                    Image(systemName: "number")
-                        .foregroundStyle(.gray)
-                        .frame(width: 20)
+                // Header
+                VStack(spacing: 16) {
+                    Text("✉️")
+                        .font(.system(size: 80))
+                        .padding(.top, 40)
 
-                    TextField("", text: $flowData.otpCode, prompt: Text("6-digit code").foregroundColor(.gray))
-                        .keyboardType(.numberPad)
-                        .foregroundStyle(.black)
-                        .font(.system(size: 24, weight: .semibold).monospacedDigit())
+                    Text("Enter your code")
+                        .font(.system(size: 34, weight: .bold))
+                        .foregroundStyle(.primary)
                         .multilineTextAlignment(.center)
-                        .focused($isFocused)
-                        .onChange(of: flowData.otpCode) { oldValue, newValue in
-                            // Limit to 6 digits
-                            if newValue.count > 6 {
-                                flowData.otpCode = String(newValue.prefix(6))
-                            }
-                            showValidation = false
 
-                            // Auto-verify when 6 digits entered
-                            if newValue.count == 6 {
-                                handleVerify()
-                            }
-                        }
+                    Text("We sent a 6-digit code to")
+                        .font(.system(size: 17))
+                        .foregroundStyle(.secondary)
+
+                    Text(flowData.email)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.primary)
                 }
-                .padding()
-                .background(.white)
-            }
-            .cornerRadius(12)
-            .padding(.horizontal, 32)
+                .padding(.bottom, 48)
 
-            // Validation Hint
-            if showValidation {
-                Text("Invalid code. Please try again.")
-                    .font(.caption)
-                    .foregroundStyle(.red.opacity(0.9))
-                    .padding(.top, 8)
-                    .transition(.opacity)
-            }
+                // OTP Input
+                VStack(spacing: 0) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "number")
+                            .foregroundStyle(.gray)
+                            .frame(width: 20)
 
-            // Resend Link
-            Button(action: {
-                // TODO: Implement resend OTP
-                print("Resend OTP")
-            }) {
-                Text("Didn't receive it? Resend code")
-                    .font(.system(size: 15))
-                    .foregroundStyle(.white.opacity(0.8))
-                    .underline()
-            }
-            .padding(.top, 16)
+                        TextField("", text: $flowData.otpCode, prompt: Text("6-digit code").foregroundColor(.gray))
+                            .keyboardType(.numberPad)
+                            .foregroundStyle(.primary)
+                            .font(.system(size: 24, weight: .semibold).monospacedDigit())
+                            .multilineTextAlignment(.center)
+                            .focused($isFocused)
+                            .onChange(of: flowData.otpCode) { oldValue, newValue in
+                                // Limit to 6 digits
+                                if newValue.count > 6 {
+                                    flowData.otpCode = String(newValue.prefix(6))
+                                }
+                                showValidation = false
 
-            Spacer()
+                                // Auto-verify when 6 digits entered
+                                if newValue.count == 6 {
+                                    handleVerify()
+                                }
+                            }
+                    }
+                    .padding()
+                    .background(Color(uiColor: .secondarySystemBackground))
+                }
+                .cornerRadius(12)
+                .padding(.horizontal, 32)
 
-            // Verify Button
-            Button(action: handleVerify) {
-                if isVerifying {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                // Validation Hint
+                if showValidation {
+                    Text("Invalid code. Please try again.")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .padding(.top, 8)
+                        .transition(.opacity)
+                }
+
+                // Resend Link
+                Button(action: {
+                    // TODO: Implement resend OTP
+                    print("Resend OTP")
+                }) {
+                    Text("Didn't receive it? Resend code")
+                        .font(.system(size: 15))
+                        .foregroundStyle(Color(red: 0.4, green: 0.0, blue: 0.0))
+                        .underline()
+                }
+                .padding(.top, 16)
+
+                Spacer(minLength: 40)
+
+                // Verify Button
+                Button(action: handleVerify) {
+                    if isVerifying {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                    } else {
+                        HStack {
+                            Text("Verify")
+                                .font(.system(size: 18, weight: .semibold))
+
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 16, weight: .semibold))
+                        }
+                        .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
-                } else {
-                    HStack {
-                        Text("Verify")
-                            .font(.system(size: 18, weight: .semibold))
-
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 16, weight: .semibold))
                     }
-                    .foregroundStyle(canProceed ? .black : .gray)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
                 }
+                .background(canProceed && !isVerifying ? Color(red: 0.4, green: 0.0, blue: 0.0) : Color.gray.opacity(0.3))
+                .cornerRadius(12)
+                .disabled(!canProceed || isVerifying)
+                .padding(.horizontal, 32)
+                .padding(.bottom, 48)
             }
-            .background(canProceed && !isVerifying ? .white : Color.white.opacity(0.5))
-            .cornerRadius(12)
-            .disabled(!canProceed || isVerifying)
-            .padding(.horizontal, 32)
-            .padding(.bottom, 48)
         }
+        .background(Color(uiColor: .systemBackground))
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 isFocused = true

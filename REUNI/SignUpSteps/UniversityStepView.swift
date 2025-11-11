@@ -28,20 +28,20 @@ struct UniversityStepView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Header
-            VStack(spacing: 12) {
+            VStack(spacing: 16) {
                 Text("🎓")
-                    .font(.system(size: 60))
-                    .padding(.top, 80)
+                    .font(.system(size: 80))
+                    .padding(.top, 40)
 
                 Text("Where do you study?")
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundStyle(.white)
+                    .font(.system(size: 34, weight: .bold))
+                    .foregroundStyle(.primary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
 
                 Text("Select your university")
                     .font(.system(size: 17))
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
             .padding(.bottom, 32)
@@ -52,7 +52,7 @@ struct UniversityStepView: View {
                     .foregroundStyle(.gray)
 
                 TextField("", text: $searchText, prompt: Text("Search universities").foregroundColor(.gray))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.primary)
                     .autocorrectionDisabled()
 
                 if !searchText.isEmpty {
@@ -63,7 +63,7 @@ struct UniversityStepView: View {
                 }
             }
             .padding()
-            .background(.white)
+            .background(Color(uiColor: .secondarySystemBackground))
             .cornerRadius(12)
             .padding(.horizontal, 32)
             .padding(.bottom, 16)
@@ -82,7 +82,7 @@ struct UniversityStepView: View {
                             HStack {
                                 Text(university)
                                     .font(.system(size: 16))
-                                    .foregroundStyle(.black)
+                                    .foregroundStyle(.primary)
                                     .multilineTextAlignment(.leading)
 
                                 Spacer()
@@ -94,7 +94,7 @@ struct UniversityStepView: View {
                                 }
                             }
                             .padding()
-                            .background(flowData.university == university ? Color.white.opacity(0.95) : Color.white.opacity(0.9))
+                            .background(flowData.university == university ? Color(uiColor: .tertiarySystemBackground) : Color(uiColor: .secondarySystemBackground))
                         }
                         .buttonStyle(.plain)
 
@@ -106,7 +106,7 @@ struct UniversityStepView: View {
                     }
                 }
             }
-            .background(.white)
+            .background(Color(uiColor: .secondarySystemBackground))
             .cornerRadius(12)
             .padding(.horizontal, 32)
             .frame(maxHeight: 400)
@@ -124,27 +124,17 @@ struct UniversityStepView: View {
                         Image(systemName: "arrow.right")
                             .font(.system(size: 14, weight: .semibold))
                     }
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 56)
-                    .background(.white)
+                    .background(Color(red: 0.4, green: 0.0, blue: 0.0))
                     .cornerRadius(12)
                 }
                 .padding(.horizontal, 32)
                 .padding(.bottom, 48)
             }
         }
-        .background(
-            LinearGradient(
-                colors: [
-                    Color(red: 0.4, green: 0.0, blue: 0.0),
-                    Color(red: 0.2, green: 0.0, blue: 0.0)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-        )
+        .background(Color(uiColor: .systemBackground))
     }
 }
 

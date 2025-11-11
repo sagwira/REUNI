@@ -39,155 +39,157 @@ struct PasswordStepView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
-
-            // Header
-            VStack(spacing: 12) {
-                Text("🔐")
-                    .font(.system(size: 60))
-
-                Text("Create a password")
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundStyle(.white)
-                    .multilineTextAlignment(.center)
-
-                Text("Make it secure, make it memorable")
-                    .font(.system(size: 17))
-                    .foregroundStyle(.white.opacity(0.7))
-                    .multilineTextAlignment(.center)
-            }
-            .padding(.bottom, 48)
-
-            // Password Inputs
+        ScrollView {
             VStack(spacing: 0) {
-                // Password Field
-                HStack(spacing: 12) {
-                    Image(systemName: "lock.fill")
-                        .foregroundStyle(.gray)
-                        .frame(width: 20)
+                // Header
+                VStack(spacing: 16) {
+                    Text("🔐")
+                        .font(.system(size: 80))
+                        .padding(.top, 40)
 
-                    if showPassword {
-                        TextField("", text: $flowData.password, prompt: Text("Password").foregroundColor(.gray))
-                            .foregroundStyle(.black)
-                            .focused($focusedField, equals: .password)
-                            .onSubmit {
-                                focusedField = .confirmPassword
-                            }
-                    } else {
-                        SecureField("", text: $flowData.password, prompt: Text("Password").foregroundColor(.gray))
-                            .foregroundStyle(.black)
-                            .focused($focusedField, equals: .password)
-                            .onSubmit {
-                                focusedField = .confirmPassword
-                            }
-                    }
+                    Text("Create a password")
+                        .font(.system(size: 34, weight: .bold))
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.center)
 
-                    Button(action: { showPassword.toggle() }) {
-                        Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
+                    Text("Make it secure, make it memorable")
+                        .font(.system(size: 17))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.bottom, 48)
+
+                // Password Inputs
+                VStack(spacing: 0) {
+                    // Password Field
+                    HStack(spacing: 12) {
+                        Image(systemName: "lock.fill")
                             .foregroundStyle(.gray)
-                    }
-                }
-                .padding()
-                .background(.white)
+                            .frame(width: 20)
 
-                Divider()
-                    .background(Color.gray.opacity(0.3))
-
-                // Confirm Password Field
-                HStack(spacing: 12) {
-                    Image(systemName: "lock.fill")
-                        .foregroundStyle(.gray)
-                        .frame(width: 20)
-
-                    if showConfirmPassword {
-                        TextField("", text: $flowData.confirmPassword, prompt: Text("Confirm password").foregroundColor(.gray))
-                            .foregroundStyle(.black)
-                            .focused($focusedField, equals: .confirmPassword)
-                            .onSubmit {
-                                if canProceed {
-                                    handleNext()
+                        if showPassword {
+                            TextField("", text: $flowData.password, prompt: Text("Password").foregroundColor(.gray))
+                                .foregroundStyle(.primary)
+                                .focused($focusedField, equals: .password)
+                                .onSubmit {
+                                    focusedField = .confirmPassword
                                 }
-                            }
-                    } else {
-                        SecureField("", text: $flowData.confirmPassword, prompt: Text("Confirm password").foregroundColor(.gray))
-                            .foregroundStyle(.black)
-                            .focused($focusedField, equals: .confirmPassword)
-                            .onSubmit {
-                                if canProceed {
-                                    handleNext()
+                        } else {
+                            SecureField("", text: $flowData.password, prompt: Text("Password").foregroundColor(.gray))
+                                .foregroundStyle(.primary)
+                                .focused($focusedField, equals: .password)
+                                .onSubmit {
+                                    focusedField = .confirmPassword
                                 }
-                            }
-                    }
+                        }
 
-                    Button(action: { showConfirmPassword.toggle() }) {
-                        Image(systemName: showConfirmPassword ? "eye.slash.fill" : "eye.fill")
+                        Button(action: { showPassword.toggle() }) {
+                            Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
+                                .foregroundStyle(.gray)
+                        }
+                    }
+                    .padding()
+                    .background(Color(uiColor: .secondarySystemBackground))
+
+                    Divider()
+                        .background(Color.gray.opacity(0.3))
+
+                    // Confirm Password Field
+                    HStack(spacing: 12) {
+                        Image(systemName: "lock.fill")
                             .foregroundStyle(.gray)
+                            .frame(width: 20)
+
+                        if showConfirmPassword {
+                            TextField("", text: $flowData.confirmPassword, prompt: Text("Confirm password").foregroundColor(.gray))
+                                .foregroundStyle(.primary)
+                                .focused($focusedField, equals: .confirmPassword)
+                                .onSubmit {
+                                    if canProceed {
+                                        handleNext()
+                                    }
+                                }
+                        } else {
+                            SecureField("", text: $flowData.confirmPassword, prompt: Text("Confirm password").foregroundColor(.gray))
+                                .foregroundStyle(.primary)
+                                .focused($focusedField, equals: .confirmPassword)
+                                .onSubmit {
+                                    if canProceed {
+                                        handleNext()
+                                    }
+                                }
+                        }
+
+                        Button(action: { showConfirmPassword.toggle() }) {
+                            Image(systemName: showConfirmPassword ? "eye.slash.fill" : "eye.fill")
+                                .foregroundStyle(.gray)
+                        }
                     }
+                    .padding()
+                    .background(Color(uiColor: .secondarySystemBackground))
                 }
-                .padding()
-                .background(.white)
-            }
-            .cornerRadius(12)
-            .padding(.horizontal, 32)
-
-            // Password Strength Indicator
-            if !flowData.password.isEmpty {
-                HStack(spacing: 8) {
-                    ForEach(0..<3) { index in
-                        Rectangle()
-                            .fill(index < passwordStrength.bars ? passwordStrength.color : Color.white.opacity(0.3))
-                            .frame(height: 4)
-                            .cornerRadius(2)
-                    }
-                }
-                .frame(maxWidth: 200)
-                .padding(.top, 12)
-
-                Text(passwordStrength.text)
-                    .font(.caption)
-                    .foregroundStyle(passwordStrength.color)
-                    .padding(.top, 4)
-            }
-
-            // Validation Hints
-            VStack(spacing: 4) {
-                if showValidation {
-                    if flowData.password.count < 6 {
-                        Text("Password must be at least 6 characters")
-                            .font(.caption)
-                            .foregroundStyle(.red.opacity(0.9))
-                    }
-                    if !flowData.confirmPassword.isEmpty && flowData.password != flowData.confirmPassword {
-                        Text("Passwords do not match")
-                            .font(.caption)
-                            .foregroundStyle(.red.opacity(0.9))
-                    }
-                }
-            }
-            .padding(.top, 8)
-
-            Spacer()
-
-            // Next Button
-            Button(action: handleNext) {
-                HStack {
-                    Text("Continue")
-                        .font(.system(size: 18, weight: .semibold))
-
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 16, weight: .semibold))
-                }
-                .foregroundStyle(canProceed ? .black : .gray)
-                .frame(maxWidth: .infinity)
-                .frame(height: 56)
-                .background(canProceed ? .white : Color.white.opacity(0.5))
                 .cornerRadius(12)
+                .padding(.horizontal, 32)
+
+                // Password Strength Indicator
+                if !flowData.password.isEmpty {
+                    HStack(spacing: 8) {
+                        ForEach(0..<3) { index in
+                            Rectangle()
+                                .fill(index < passwordStrength.bars ? passwordStrength.color : Color.gray.opacity(0.3))
+                                .frame(height: 4)
+                                .cornerRadius(2)
+                        }
+                    }
+                    .frame(maxWidth: 200)
+                    .padding(.top, 12)
+
+                    Text(passwordStrength.text)
+                        .font(.caption)
+                        .foregroundStyle(passwordStrength.color)
+                        .padding(.top, 4)
+                }
+
+                // Validation Hints
+                VStack(spacing: 4) {
+                    if showValidation {
+                        if flowData.password.count < 6 {
+                            Text("Password must be at least 6 characters")
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                        }
+                        if !flowData.confirmPassword.isEmpty && flowData.password != flowData.confirmPassword {
+                            Text("Passwords do not match")
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                        }
+                    }
+                }
+                .padding(.top, 8)
+
+                Spacer(minLength: 40)
+
+                // Next Button
+                Button(action: handleNext) {
+                    HStack {
+                        Text("Continue")
+                            .font(.system(size: 18, weight: .semibold))
+
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 16, weight: .semibold))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .background(canProceed ? Color(red: 0.4, green: 0.0, blue: 0.0) : Color.gray.opacity(0.3))
+                    .cornerRadius(12)
+                }
+                .disabled(!canProceed)
+                .padding(.horizontal, 32)
+                .padding(.bottom, 48)
             }
-            .disabled(!canProceed)
-            .padding(.horizontal, 32)
-            .padding(.bottom, 48)
         }
+        .background(Color(uiColor: .systemBackground))
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 focusedField = .password
