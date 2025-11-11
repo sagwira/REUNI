@@ -41,10 +41,11 @@ struct ProfileView: View {
                         Color.clear.frame(height: 0)
 
                         // Profile Header - Extended to top
-                        VStack(spacing: 16) {
-                            // Profile Picture
-                            if let urlString = authManager.currentUser?.profilePictureUrl,
-                               let url = URL(string: urlString) {
+                        if let currentUser = authManager.currentUser {
+                            VStack(spacing: 16) {
+                                // Profile Picture
+                                if let urlString = currentUser.profilePictureUrl,
+                                   let url = URL(string: urlString) {
                                 AsyncImage(url: url) { image in
                                     image
                                         .resizable()
@@ -117,20 +118,17 @@ struct ProfileView: View {
                                     .shadow(color: .black.opacity(0.15), radius: 20, x: 0, y: 10)
                             }
 
-                            // Username
-                            if let username = authManager.currentUser?.username {
-                                Text("@\(username)")
+                                // Username
+                                Text("@\(currentUser.username)")
                                     .font(.system(size: 26, weight: .bold))
                                     .foregroundStyle(themeManager.primaryText)
-                            }
 
-                            // University
-                            if let university = authManager.currentUser?.university {
+                                // University
                                 HStack(spacing: 6) {
                                     Image(systemName: "graduationcap.fill")
                                         .font(.system(size: 14))
                                         .foregroundStyle(themeManager.secondaryText)
-                                    Text(university)
+                                    Text(currentUser.university)
                                         .font(.system(size: 15))
                                         .foregroundStyle(themeManager.secondaryText)
                                 }
@@ -141,8 +139,23 @@ struct ProfileView: View {
                                     in: Capsule()
                                 )
                             }
+                            .padding(.top, 60)
+                        } else {
+                            // Profile not loaded yet or incomplete
+                            VStack(spacing: 16) {
+                                Circle()
+                                    .fill(themeManager.cardBackground)
+                                    .frame(width: 110, height: 110)
+                                    .overlay(
+                                        ProgressView()
+                                    )
+
+                                Text("Loading profile...")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(themeManager.secondaryText)
+                            }
+                            .padding(.top, 60)
                         }
-                        .padding(.top, 60)
 
                         // Stripe Seller Account Section
                         VStack(alignment: .leading, spacing: 16) {
