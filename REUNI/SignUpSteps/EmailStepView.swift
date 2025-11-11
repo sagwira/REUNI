@@ -139,10 +139,14 @@ struct EmailStepView: View {
     private func createAccount() async {
         isCreatingAccount = true
 
+        // Normalize email: trim whitespace and lowercase
+        let normalizedEmail = flowData.email.trimmingCharacters(in: .whitespaces).lowercased()
+        flowData.email = normalizedEmail
+
         do {
             // Create account with temporary password (will be set in next step)
             let tempPassword = UUID().uuidString
-            let userId = try await authManager.signUp(email: flowData.email, password: tempPassword)
+            let userId = try await authManager.signUp(email: normalizedEmail, password: tempPassword)
             flowData.userId = userId
 
             isCreatingAccount = false
