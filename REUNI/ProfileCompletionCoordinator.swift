@@ -193,10 +193,10 @@ struct ProfileCompletionCoordinator: View {
         }
 
         // Check date of birth
-        if user.dateOfBirth == nil {
-            missing.append(.dateOfBirth)
+        if let dob = user.dateOfBirth {
+            completionData.dateOfBirth = dob
         } else {
-            completionData.dateOfBirth = user.dateOfBirth!
+            missing.append(.dateOfBirth)
         }
 
         // Check university
@@ -207,10 +207,10 @@ struct ProfileCompletionCoordinator: View {
         }
 
         // Check phone number
-        if user.phoneNumber.isEmpty {
-            missing.append(.phoneNumber)
+        if let phone = user.phoneNumber, !phone.isEmpty {
+            completionData.phoneNumber = phone
         } else {
-            completionData.phoneNumber = user.phoneNumber
+            missing.append(.phoneNumber)
         }
 
         // Check username

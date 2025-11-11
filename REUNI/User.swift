@@ -11,7 +11,7 @@ struct UserProfile: Codable {
     let id: UUID
     let email: String?
     let fullName: String
-    let dateOfBirth: Date
+    let dateOfBirth: Date?
     let phoneNumber: String?
     var username: String
     let university: String
