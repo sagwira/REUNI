@@ -53,14 +53,14 @@ class AuthenticationManager {
         do {
             print("📥 Fetching profile for userId: \(userId)")
 
-            let response = try await supabase
+            // First check if profile exists
+            let checkResponse = try await supabase
                 .from("profiles")
                 .select()
                 .eq("id", value: userId)
-                .single()
                 .execute()
 
-            print("📦 Raw response data: \(String(data: response.data, encoding: .utf8) ?? "nil")")
+            print("📦 Raw response data: \(String(data: checkResponse.data, encoding: .utf8) ?? "nil")")
 
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .custom { decoder in
@@ -83,8 +83,43 @@ class AuthenticationManager {
                 throw DecodingError.dataCorruptedError(in: container, debugDescription: "Cannot decode date string \(dateString)")
             }
 
-            let profile: UserProfile = try decoder.decode(UserProfile.self, from: response.data)
+            let profiles = try decoder.decode([UserProfile].self, from: checkResponse.data)
 
+            if profiles.isEmpty {
+                print("⚠️ No profile found in database - creating minimal profile")
+                // Auto-create a minimal profile for manually created accounts
+                let session = try await supabase.auth.session
+                let email = session.user.email ?? ""
+
+                try await supabase
+                    .from("profiles")
+                    .insert([
+                        "id": userId.uuidString,
+                        "email": email,
+                        "full_name": "",
+                        "username": "",
+                        "university": "",
+                        "date_of_birth": NSNull(),
+                        "phone_number": NSNull(),
+                        "created_at": ISO8601DateFormatter().string(from: Date())
+                    ])
+                    .execute()
+
+                print("✅ Minimal profile created - user will complete via profile completion flow")
+
+                // Fetch the newly created profile
+                let newResponse = try await supabase
+                    .from("profiles")
+                    .select()
+                    .eq("id", value: userId)
+                    .execute()
+
+                let newProfiles = try decoder.decode([UserProfile].self, from: newResponse.data)
+                currentUser = newProfiles.first
+                return
+            }
+
+            let profile = profiles[0]
             currentUser = profile
             print("✅ Profile fetched successfully")
             print("   Username: \(profile.username)")
