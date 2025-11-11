@@ -19,6 +19,7 @@ class SignUpFlowData {
     var confirmPassword: String = ""
     var university: String = ""
     var userId: UUID?
+    var skipOTPVerification: Bool = false  // Set to true when email confirmation is disabled
 
     // UK Universities List
     let ukUniversities = [
@@ -171,7 +172,15 @@ struct SignUpFlowCoordinator: View {
     private func goToNext() {
         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
             if let nextStep = SignUpStep(rawValue: currentStep.rawValue + 1) {
-                currentStep = nextStep
+                // Skip OTP verification if email confirmation is disabled
+                if nextStep == .otpVerification && flowData.skipOTPVerification {
+                    // Jump directly to password step
+                    if let passwordStep = SignUpStep(rawValue: SignUpStep.password.rawValue) {
+                        currentStep = passwordStep
+                    }
+                } else {
+                    currentStep = nextStep
+                }
             }
         }
     }

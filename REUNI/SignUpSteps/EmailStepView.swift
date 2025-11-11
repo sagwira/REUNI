@@ -149,8 +149,12 @@ struct EmailStepView: View {
             let userId = try await authManager.signUp(email: normalizedEmail, password: tempPassword)
             flowData.userId = userId
 
+            // Skip OTP if email confirmation is disabled in Supabase
+            // (account is auto-confirmed when "Confirm email" is unchecked)
+            flowData.skipOTPVerification = true  // TODO: Set to false when re-enabling email confirmation
+
             isCreatingAccount = false
-            onNext()  // Move to OTP verification
+            onNext()  // Move to password (skips OTP when skipOTPVerification = true)
 
         } catch AuthError.emailExists {
             isCreatingAccount = false
