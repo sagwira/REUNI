@@ -173,10 +173,8 @@ struct MainContainerView: View {
             isIncomplete = true
         }
 
-        // Check date of birth
-        if user.dateOfBirth == nil {
-            isIncomplete = true
-        }
+        // Date of birth has NOT NULL constraint in DB, so always has a value
+        // Manually created accounts get default DOB, can edit in profile settings
 
         // Check university
         if user.university.isEmpty {

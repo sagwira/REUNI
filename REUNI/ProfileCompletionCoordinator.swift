@@ -56,7 +56,6 @@ class ProfileCompletionData {
 
 enum ProfileField: String, CaseIterable {
     case name = "name"
-    case dateOfBirth = "date_of_birth"
     case university = "university"
     case phoneNumber = "phone_number"
     case username = "username"
@@ -64,7 +63,6 @@ enum ProfileField: String, CaseIterable {
     var title: String {
         switch self {
         case .name: return "What's your name?"
-        case .dateOfBirth: return "When's your birthday?"
         case .university: return "Where do you study?"
         case .phoneNumber: return "What's your phone number?"
         case .username: return "Choose a username"
@@ -74,7 +72,6 @@ enum ProfileField: String, CaseIterable {
     var subtitle: String {
         switch self {
         case .name: return "Let's complete your profile"
-        case .dateOfBirth: return "You must be 18 or older"
         case .university: return "Select your university"
         case .phoneNumber: return "We'll use this for account security"
         case .username: return "This will be visible to other users"
@@ -84,7 +81,6 @@ enum ProfileField: String, CaseIterable {
     var emoji: String {
         switch self {
         case .name: return "👋"
-        case .dateOfBirth: return "🎂"
         case .university: return "🎓"
         case .phoneNumber: return "📱"
         case .username: return "✨"
@@ -150,11 +146,6 @@ struct ProfileCompletionCoordinator: View {
                 completionData: completionData,
                 onNext: { await saveAndProceed() }
             )
-        case .dateOfBirth:
-            CompleteDOBView(
-                completionData: completionData,
-                onNext: { await saveAndProceed() }
-            )
         case .university:
             CompleteUniversityView(
                 completionData: completionData,
@@ -191,11 +182,9 @@ struct ProfileCompletionCoordinator: View {
             completionData.lastName = String(parts.dropFirst().joined(separator: " "))
         }
 
-        // Check date of birth
+        // Date of birth has NOT NULL constraint in DB, skip completion check
         if let dob = user.dateOfBirth {
             completionData.dateOfBirth = dob
-        } else {
-            missing.append(.dateOfBirth)
         }
 
         // Check university
@@ -242,14 +231,6 @@ struct ProfileCompletionCoordinator: View {
                 try await supabase
                     .from("profiles")
                     .update(["full_name": fullName])
-                    .eq("id", value: userId.uuidString)
-                    .execute()
-
-            case .dateOfBirth:
-                let formatter = ISO8601DateFormatter()
-                try await supabase
-                    .from("profiles")
-                    .update(["date_of_birth": formatter.string(from: completionData.dateOfBirth)])
                     .eq("id", value: userId.uuidString)
                     .execute()
 

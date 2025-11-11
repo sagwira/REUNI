@@ -91,13 +91,18 @@ class AuthenticationManager {
                 let session = try await supabase.auth.session
                 let email = session.user.email ?? ""
 
-                // Create minimal profile - omit optional fields to let them default to NULL
+                // Create minimal profile with default date of birth (18 years ago)
+                let defaultDOB = Calendar.current.date(byAdding: .year, value: -18, to: Date()) ?? Date()
+                let dobFormatter = ISO8601DateFormatter()
+                dobFormatter.formatOptions = [.withFullDate]
+
                 let profileData: [String: String] = [
                     "id": userId.uuidString,
                     "email": email,
                     "full_name": "",
                     "username": "",
                     "university": "",
+                    "date_of_birth": dobFormatter.string(from: defaultDOB),
                     "created_at": ISO8601DateFormatter().string(from: Date())
                 ]
 
