@@ -109,7 +109,7 @@ struct ProfileCompletionCoordinator: View {
                 VStack(spacing: 0) {
                     // Progress Bar
                     if completionData.missingFields.count > 1 {
-                        ProgressBarView(
+                        CompletionProgressBar(
                             current: completionData.currentFieldIndex + 1,
                             total: completionData.missingFields.count
                         )
@@ -301,7 +301,7 @@ struct ProfileCompletionCoordinator: View {
 }
 
 // MARK: - Progress Bar
-struct ProgressBarView: View {
+struct CompletionProgressBar: View {
     let current: Int
     let total: Int
 
