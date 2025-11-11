@@ -99,10 +99,10 @@ class AuthenticationManager {
                         "full_name": "",
                         "username": "",
                         "university": "",
-                        "date_of_birth": NSNull(),
-                        "phone_number": NSNull(),
+                        "date_of_birth": NSNull() as Any,
+                        "phone_number": NSNull() as Any,
                         "created_at": ISO8601DateFormatter().string(from: Date())
-                    ])
+                    ] as [String: Any])
                     .execute()
 
                 print("✅ Minimal profile created - user will complete via profile completion flow")
