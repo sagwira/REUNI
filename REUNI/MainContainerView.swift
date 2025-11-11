@@ -181,7 +181,11 @@ struct MainContainerView: View {
         }
 
         // Check phone number
-        if user.phoneNumber.isEmpty {
+        if let phone = user.phoneNumber {
+            if phone.isEmpty {
+                isIncomplete = true
+            }
+        } else {
             isIncomplete = true
         }
 
