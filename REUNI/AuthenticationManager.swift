@@ -91,18 +91,20 @@ class AuthenticationManager {
                 let session = try await supabase.auth.session
                 let email = session.user.email ?? ""
 
+                let profileData: [String: Any] = [
+                    "id": userId.uuidString,
+                    "email": email,
+                    "full_name": "",
+                    "username": "",
+                    "university": "",
+                    "date_of_birth": NSNull(),
+                    "phone_number": NSNull(),
+                    "created_at": ISO8601DateFormatter().string(from: Date())
+                ]
+
                 try await supabase
                     .from("profiles")
-                    .insert([
-                        "id": userId.uuidString,
-                        "email": email,
-                        "full_name": "",
-                        "username": "",
-                        "university": "",
-                        "date_of_birth": NSNull() as Any,
-                        "phone_number": NSNull() as Any,
-                        "created_at": ISO8601DateFormatter().string(from: Date())
-                    ] as [String: Any])
+                    .insert(profileData)
                     .execute()
 
                 print("✅ Minimal profile created - user will complete via profile completion flow")
