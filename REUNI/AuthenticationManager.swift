@@ -91,14 +91,13 @@ class AuthenticationManager {
                 let session = try await supabase.auth.session
                 let email = session.user.email ?? ""
 
-                let profileData: [String: Any] = [
+                // Create minimal profile - omit optional fields to let them default to NULL
+                let profileData: [String: String] = [
                     "id": userId.uuidString,
                     "email": email,
                     "full_name": "",
                     "username": "",
                     "university": "",
-                    "date_of_birth": NSNull(),
-                    "phone_number": NSNull(),
                     "created_at": ISO8601DateFormatter().string(from: Date())
                 ]
 
