@@ -45,21 +45,71 @@ class AuthenticationManager {
 
     @MainActor
     func fetchUserProfile() async {
-        guard let userId = currentUserId else { return }
+        guard let userId = currentUserId else {
+            print("❌ No userId to fetch profile")
+            return
+        }
 
         do {
-            let profile: UserProfile = try await supabase
+            print("📥 Fetching profile for userId: \(userId)")
+
+            let response = try await supabase
                 .from("profiles")
                 .select()
                 .eq("id", value: userId)
                 .single()
                 .execute()
-                .value
+
+            print("📦 Raw response data: \(String(data: response.data, encoding: .utf8) ?? "nil")")
+
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .custom { decoder in
+                let container = try decoder.singleValueContainer()
+                let dateString = try container.decode(String.self)
+
+                // Try ISO8601 with fractional seconds first
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                if let date = formatter.date(from: dateString) {
+                    return date
+                }
+
+                // Try ISO8601 without fractional seconds
+                formatter.formatOptions = [.withInternetDateTime]
+                if let date = formatter.date(from: dateString) {
+                    return date
+                }
+
+                throw DecodingError.dataCorruptedError(in: container, debugDescription: "Cannot decode date string \(dateString)")
+            }
+
+            let profile: UserProfile = try decoder.decode(UserProfile.self, from: response.data)
 
             currentUser = profile
-            print("✅ Profile fetched - Profile Picture URL: \(profile.profilePictureUrl ?? "nil")")
+            print("✅ Profile fetched successfully")
+            print("   Username: \(profile.username)")
+            print("   University: \(profile.university)")
+            print("   DOB: \(profile.dateOfBirth?.description ?? "nil")")
+            print("   Phone: \(profile.phoneNumber ?? "nil")")
         } catch {
-            print("Error fetching profile: \(error)")
+            print("❌ Error fetching profile: \(error)")
+            if let decodingError = error as? DecodingError {
+                switch decodingError {
+                case .keyNotFound(let key, let context):
+                    print("   Missing key: \(key.stringValue)")
+                    print("   Context: \(context)")
+                case .typeMismatch(let type, let context):
+                    print("   Type mismatch for type: \(type)")
+                    print("   Context: \(context)")
+                case .valueNotFound(let type, let context):
+                    print("   Value not found for type: \(type)")
+                    print("   Context: \(context)")
+                case .dataCorrupted(let context):
+                    print("   Data corrupted: \(context)")
+                @unknown default:
+                    print("   Unknown decoding error")
+                }
+            }
         }
     }
 

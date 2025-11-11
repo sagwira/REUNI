@@ -10,11 +10,11 @@ import Foundation
 struct UserProfile: Codable {
     let id: UUID
     let email: String?
-    let fullName: String
+    var fullName: String
     let dateOfBirth: Date?
     let phoneNumber: String?
     var username: String
-    let university: String
+    var university: String
     let city: String?
     var profilePictureUrl: String?
     let studentIDUrl: String?
