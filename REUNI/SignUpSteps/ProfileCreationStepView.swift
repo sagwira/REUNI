@@ -185,18 +185,25 @@ struct ProfileCreationStepView: View {
     }
 
     private func createProfileInDatabase(userId: UUID, profilePictureUrl: String?) async throws {
-        let profile: [String: Any] = [
+        var profile: [String: Any] = [
             "id": userId.uuidString,
             "full_name": "\(flowData.firstName) \(flowData.lastName)",
             "email": flowData.email,
             "phone_number": flowData.phoneNumber,
             "university": flowData.university,
             "date_of_birth": ISO8601DateFormatter().string(from: flowData.dateOfBirth),
-            "profile_picture_url": profilePictureUrl as Any,
-            "bio": bio.isEmpty ? nil as Any : bio,
             "created_at": ISO8601DateFormatter().string(from: Date()),
             "updated_at": ISO8601DateFormatter().string(from: Date())
         ]
+
+        // Add optional fields only if they have values
+        if let profilePictureUrl = profilePictureUrl {
+            profile["profile_picture_url"] = profilePictureUrl
+        }
+
+        if !bio.isEmpty {
+            profile["bio"] = bio
+        }
 
         try await supabase
             .from("profiles")
