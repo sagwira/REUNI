@@ -145,9 +145,12 @@ class StripeSellerService {
             }
 
             // Format date of birth for Stripe (ISO 8601 date only)
+            guard let dateOfBirth = userProfile.dateOfBirth else {
+                throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Please complete your profile with date of birth before setting up a seller account"])
+            }
             let dobFormatter = ISO8601DateFormatter()
             dobFormatter.formatOptions = [.withFullDate]
-            let dobString = dobFormatter.string(from: userProfile.dateOfBirth)
+            let dobString = dobFormatter.string(from: dateOfBirth)
 
             // Format phone number to E.164 format for Stripe (UK: +44)
             var formattedPhone: String? = nil

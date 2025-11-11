@@ -173,7 +173,10 @@ struct MainContainerView: View {
             isIncomplete = true
         }
 
-        // Date of birth is always required during signup, so no need to check
+        // Check date of birth
+        if user.dateOfBirth == nil {
+            isIncomplete = true
+        }
 
         // Check university
         if user.university.isEmpty {
