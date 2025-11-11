@@ -13,6 +13,7 @@ import StripePaymentSheet
 struct REUNIApp: App {
     @State private var authManager = AuthenticationManager()
     @State private var themeManager = ThemeManager()
+    @State private var showStripeSuccess = false
 
     init() {
         // Configure Stripe with publishable key
@@ -47,13 +48,31 @@ struct REUNIApp: App {
                 }
             }
             .preferredColorScheme(themeManager.colorScheme)
+            .fullScreenCover(isPresented: $showStripeSuccess) {
+                StripeOnboardingSuccessView()
+            }
             .onOpenURL { url in
-                supabase.auth.handle(url)
+                handleDeepLink(url)
             }
             .task {
                 await initializeStorage()
             }
         }
+    }
+
+    private func handleDeepLink(_ url: URL) {
+        print("📱 Deep link received: \(url)")
+
+        // Check if it's Stripe onboarding complete
+        if url.absoluteString.contains("stripe-onboarding-complete") {
+            print("✅ Stripe onboarding completed!")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                showStripeSuccess = true
+            }
+        }
+
+        // Also pass to Supabase auth for other auth-related deep links
+        supabase.auth.handle(url)
     }
 
     private func initializeStorage() async {
