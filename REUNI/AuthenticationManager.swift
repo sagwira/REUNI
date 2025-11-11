@@ -117,10 +117,12 @@ class AuthenticationManager {
                 .value
 
             if !existingCheck.isEmpty {
+                print("❌ Email exists in profiles table: \(email)")
                 throw AuthError.emailExists
             }
 
             // Proceed with signup
+            print("📝 Creating auth account for: \(email)")
             let session = try await supabase.auth.signUp(
                 email: email,
                 password: password
@@ -131,13 +133,33 @@ class AuthenticationManager {
             }
 
             currentUserId = userId
+            print("✅ Auth account created successfully: \(userId)")
             return userId
         } catch AuthError.emailExists {
             throw AuthError.emailExists
+        } catch let error as NSError {
+            // Log the actual error for debugging
+            print("❌ Signup error: \(error)")
+            print("   Domain: \(error.domain)")
+            print("   Code: \(error.code)")
+            print("   Description: \(error.localizedDescription)")
+
+            // Check if it's actually an email exists error from Supabase
+            let errorMessage = error.localizedDescription.lowercased()
+            if errorMessage.contains("already") || errorMessage.contains("duplicate") || errorMessage.contains("exists") {
+                throw AuthError.emailExists
+            }
+
+            // For other errors, throw a generic error with the actual message
+            throw NSError(
+                domain: "AuthError",
+                code: error.code,
+                userInfo: [NSLocalizedDescriptionKey: "Signup failed: \(error.localizedDescription)"]
+            )
         } catch {
-            // For other Supabase auth errors, still throw emailExists
-            // (Supabase checks auth.users table for exact email match)
-            throw AuthError.emailExists
+            // Catch-all for non-NSError types
+            print("❌ Unexpected signup error: \(error)")
+            throw error
         }
     }
 
