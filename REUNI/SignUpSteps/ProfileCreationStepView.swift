@@ -174,7 +174,7 @@ struct ProfileCreationStepView: View {
         let fileName = "\(userId).jpg"
         _ = try await supabase.storage
             .from("avatars")
-            .upload(path: fileName, file: imageData, options: .init(upsert: true))
+            .upload(fileName, data: imageData, options: .init(upsert: true))
 
         // Get public URL
         let publicURL = try supabase.storage
