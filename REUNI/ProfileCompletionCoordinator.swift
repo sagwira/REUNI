@@ -176,8 +176,7 @@ struct ProfileCompletionCoordinator: View {
 
     @MainActor
     private func checkMissingFields() async {
-        guard let user = authManager.currentUser,
-              let userId = authManager.currentUserId else {
+        guard let user = authManager.currentUser else {
             return
         }
 
