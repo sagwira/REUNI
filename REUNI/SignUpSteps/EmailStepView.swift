@@ -155,6 +155,9 @@ struct EmailStepView: View {
         } catch AuthError.emailExists {
             isCreatingAccount = false
             onError("This email is already registered. Please use a different email or sign in.")
+        } catch AuthError.rateLimitExceeded {
+            isCreatingAccount = false
+            onError("Too many signup attempts. Please wait 30 minutes and try again, or use a different email address.")
         } catch {
             isCreatingAccount = false
             onError("Signup failed: \(error.localizedDescription)")

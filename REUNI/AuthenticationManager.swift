@@ -144,8 +144,14 @@ class AuthenticationManager {
             print("   Code: \(error.code)")
             print("   Description: \(error.localizedDescription)")
 
-            // Check if it's actually an email exists error from Supabase
             let errorMessage = error.localizedDescription.lowercased()
+
+            // Check for rate limit errors (429)
+            if errorMessage.contains("rate limit") || errorMessage.contains("too many") {
+                throw AuthError.rateLimitExceeded
+            }
+
+            // Check if it's actually an email exists error from Supabase
             if errorMessage.contains("already") || errorMessage.contains("duplicate") || errorMessage.contains("exists") {
                 throw AuthError.emailExists
             }
@@ -652,6 +658,7 @@ enum AuthError: LocalizedError {
     case invalidPassword
     case invalidOTP
     case otpExpired
+    case rateLimitExceeded
 
     var errorDescription: String? {
         switch self {
@@ -675,6 +682,8 @@ enum AuthError: LocalizedError {
             return "Invalid verification code"
         case .otpExpired:
             return "Verification code expired"
+        case .rateLimitExceeded:
+            return "Too many signup attempts. Please wait 30 minutes and try again, or use a different email address."
         }
     }
 }
