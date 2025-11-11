@@ -7,6 +7,13 @@
 
 import SwiftUI
 
+// Theme Mode Options
+enum ThemeMode: String {
+    case light
+    case dark
+    case system
+}
+
 @Observable
 class ThemeManager {
     var isDarkMode: Bool {
@@ -27,6 +34,20 @@ class ThemeManager {
 
     func toggleTheme() {
         isDarkMode.toggle()
+    }
+
+    func setTheme(_ mode: ThemeMode) {
+        switch mode {
+        case .light:
+            isDarkMode = false
+        case .dark:
+            isDarkMode = true
+        case .system:
+            // Match system preference
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+                isDarkMode = windowScene.windows.first?.traitCollection.userInterfaceStyle == .dark
+            }
+        }
     }
 
     // MARK: - Theme Colors (Matching the dark theme image exactly)

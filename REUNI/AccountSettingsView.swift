@@ -12,7 +12,6 @@ struct AccountSettingsView: View {
     @Bindable var authManager: AuthenticationManager
     @Bindable var navigationCoordinator: NavigationCoordinator
     @Bindable var themeManager: ThemeManager
-    @State private var showSideMenu = false
 
     // Form fields
     @State private var email = ""
@@ -32,43 +31,8 @@ struct AccountSettingsView: View {
             themeManager.backgroundColor
                 .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                // Top Navigation Bar
-                HStack {
-                    // Menu Button
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            showSideMenu = true
-                        }
-                    }) {
-                        Image(systemName: "line.3.horizontal")
-                            .font(.system(size: 22))
-                            .foregroundStyle(themeManager.primaryText)
-                            .frame(width: 44, height: 44)
-                    }
-
-                    Spacer()
-
-                    // Title
-                    Text("Account Settings")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(themeManager.primaryText)
-
-                    Spacer()
-
-                    // Profile Button
-                    TappableUserAvatar(
-                        authManager: authManager,
-                        size: 32
-                    )
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(themeManager.cardBackground)
-                .shadow(color: themeManager.shadowColor(opacity: 0.05), radius: 2, x: 0, y: 1)
-
-                // Content
-                if isLoading {
+            // Content
+            if isLoading {
                     VStack {
                         Spacer()
                         ProgressView()
@@ -80,20 +44,25 @@ struct AccountSettingsView: View {
                             .padding(.top, 8)
                         Spacer()
                     }
-                } else {
-                    ScrollView {
+            } else {
+                ScrollView(showsIndicators: false) {
                         VStack(spacing: 24) {
+                            // Top spacer
+                            Color.clear.frame(height: 0)
+
                             // Account Information Section
                             VStack(alignment: .leading, spacing: 16) {
                                 Text("Account Information")
-                                    .font(.system(size: 18, weight: .semibold))
+                                    .font(.system(size: 20, weight: .bold))
                                     .foregroundStyle(themeManager.primaryText)
 
                                 // Email Field
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Email Address")
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(.system(size: 14, weight: .semibold))
                                         .foregroundStyle(themeManager.secondaryText)
+                                        .textCase(.uppercase)
+                                        .tracking(0.5)
 
                                     HStack {
                                         Image(systemName: "envelope.fill")
@@ -101,26 +70,27 @@ struct AccountSettingsView: View {
                                             .font(.system(size: 16))
 
                                         TextField("Email", text: $email)
-                                            .font(.system(size: 15))
+                                            .font(.system(size: 16))
                                             .foregroundStyle(themeManager.primaryText)
                                             .textInputAutocapitalization(.never)
                                             .keyboardType(.emailAddress)
                                             .autocorrectionDisabled()
                                     }
-                                    .padding(12)
-                                    .background(themeManager.secondaryBackground)
-                                    .cornerRadius(12)
+                                    .padding(16)
+                                    .background(themeManager.glassMaterial, in: RoundedRectangle(cornerRadius: 14))
                                     .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(themeManager.cardBorder, lineWidth: 1)
+                                        RoundedRectangle(cornerRadius: 14)
+                                            .stroke(themeManager.borderColor, lineWidth: 1)
                                     )
                                 }
 
                                 // Phone Number Field
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("Phone Number")
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(.system(size: 14, weight: .semibold))
                                         .foregroundStyle(themeManager.secondaryText)
+                                        .textCase(.uppercase)
+                                        .tracking(0.5)
 
                                     HStack {
                                         Image(systemName: "phone.fill")
@@ -128,23 +98,28 @@ struct AccountSettingsView: View {
                                             .font(.system(size: 16))
 
                                         TextField("Phone Number", text: $phoneNumber)
-                                            .font(.system(size: 15))
+                                            .font(.system(size: 16))
                                             .foregroundStyle(themeManager.primaryText)
                                             .keyboardType(.phonePad)
                                     }
-                                    .padding(12)
-                                    .background(themeManager.secondaryBackground)
-                                    .cornerRadius(12)
+                                    .padding(16)
+                                    .background(themeManager.glassMaterial, in: RoundedRectangle(cornerRadius: 14))
                                     .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(themeManager.cardBorder, lineWidth: 1)
+                                        RoundedRectangle(cornerRadius: 14)
+                                            .stroke(themeManager.borderColor, lineWidth: 1)
                                     )
                                 }
                             }
                             .padding(16)
-                            .background(themeManager.cardBackground)
-                            .cornerRadius(16)
-                            .shadow(color: themeManager.shadowColor(opacity: 0.05), radius: 8, x: 0, y: 2)
+                            .background(
+                                .ultraThinMaterial,
+                                in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .strokeBorder(themeManager.borderColor.opacity(0.3), lineWidth: 0.5)
+                            )
+                            .shadow(color: themeManager.shadowColor(opacity: 0.08), radius: 12, x: 0, y: 6)
 
                             // Save Button
                             Button(action: {
@@ -152,21 +127,30 @@ struct AccountSettingsView: View {
                                     await saveChanges()
                                 }
                             }) {
-                                HStack {
+                                HStack(spacing: 6) {
                                     if isSaving {
                                         ProgressView()
                                             .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                             .scaleEffect(0.9)
                                     } else {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.system(size: 16))
                                         Text("Save Changes")
-                                            .font(.system(size: 16, weight: .semibold))
+                                            .font(.system(size: 16, weight: .bold))
                                     }
                                 }
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
-                                .background(themeManager.accentColor)
-                                .cornerRadius(12)
+                                .frame(height: 56)
+                                .background(
+                                    LinearGradient(
+                                        colors: [Color.red, Color.red.opacity(0.85)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .cornerRadius(14)
+                                .shadow(color: Color.red.opacity(0.4), radius: 10, x: 0, y: 4)
                             }
                             .disabled(isSaving)
 
@@ -174,18 +158,14 @@ struct AccountSettingsView: View {
                         }
                         .padding(16)
                     }
+                    .scrollContentBackground(.hidden)
+                    .background(Color.clear)
                 }
-            }
-
-            // Floating Menu Overlay
-            FloatingMenuView(
-                authManager: authManager,
-                navigationCoordinator: navigationCoordinator,
-                themeManager: themeManager,
-                isShowing: $showSideMenu
-            )
-            .zIndex(1)
         }
+        .navigationTitle("Account Settings")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .alert("Error", isPresented: $showError) {
             Button("OK", role: .cancel) {}
         } message: {

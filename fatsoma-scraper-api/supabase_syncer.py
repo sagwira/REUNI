@@ -22,6 +22,56 @@ class SupabaseSyncer:
         self.matcher = OrganizerMatcher()
         print(f"✅ Connected to Supabase: {supabase_url}")
 
+    def _parse_last_entry_time(self, event_date_str: Optional[str], last_entry_time_str: Optional[str]) -> Optional[str]:
+        """
+        Combine event date with last entry time to create a proper timestamp
+
+        Args:
+            event_date_str: Event date in ISO format (e.g., "2025-11-12T00:00:00")
+            last_entry_time_str: Last entry time as text (e.g., "23:30", "11:30pm")
+
+        Returns:
+            ISO timestamp string for last entry or None
+        """
+        if not event_date_str or not last_entry_time_str:
+            return None
+
+        try:
+            # Parse the event date
+            if isinstance(event_date_str, str):
+                # Try parsing ISO format
+                if 'T' in event_date_str:
+                    event_date = datetime.fromisoformat(event_date_str.replace('Z', '+00:00'))
+                else:
+                    event_date = datetime.fromisoformat(event_date_str)
+            else:
+                return None
+
+            # Extract time from last_entry_time_str (e.g., "23:30", "11:30pm", "11:30 PM")
+            import re
+            time_match = re.search(r'(\d{1,2}):(\d{2})', last_entry_time_str)
+            if not time_match:
+                return None
+
+            hour = int(time_match.group(1))
+            minute = int(time_match.group(2))
+
+            # Check for AM/PM indicator
+            if 'pm' in last_entry_time_str.lower() and hour < 12:
+                hour += 12
+            elif 'am' in last_entry_time_str.lower() and hour == 12:
+                hour = 0
+
+            # Create timestamp with the same date but different time
+            last_entry_dt = event_date.replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+            # Return ISO format timestamp
+            return last_entry_dt.isoformat()
+
+        except Exception as e:
+            print(f"  ⚠️  Error parsing last entry time '{last_entry_time_str}': {e}")
+            return None
+
     def _get_or_create_organizer(self, company: str, location: str, logo_url: str = "") -> Optional[str]:
         """
         Get or create an organizer and return its UUID
@@ -113,6 +163,12 @@ class SupabaseSyncer:
                 city = event_data.get('city', '')
                 full_location = f"{venue}, {city}" if venue and city else (venue or city or '')
 
+                # Parse last entry time and combine with event date to create timestamp
+                last_entry_timestamp = self._parse_last_entry_time(
+                    event_data.get('event_date'),
+                    event_data.get('last_entry')
+                )
+
                 # Prepare event data for Supabase
                 supabase_event = {
                     'event_id': event_data.get('event_id'),
@@ -120,7 +176,7 @@ class SupabaseSyncer:
                     'company': event_data.get('company'),
                     'event_date': event_data.get('event_date'),
                     'event_time': event_data.get('time'),
-                    'last_entry': event_data.get('last_entry'),
+                    'last_entry': last_entry_timestamp,
                     'location': full_location,  # Now stores "Venue, City"
                     'age_restriction': event_data.get('age_restriction'),
                     'url': event_data.get('url'),

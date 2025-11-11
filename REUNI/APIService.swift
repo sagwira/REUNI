@@ -481,6 +481,7 @@ class APIService {
         pricePerTicket: Double,
         screenshotUrl: String,
         ticketType: String?,
+        lastEntry: String?,
         lastEntryType: String?,
         lastEntryLabel: String?,
         sellerUsername: String?,
@@ -512,6 +513,7 @@ class APIService {
                     let status: String
                     let is_listed: Bool
                     let ticket_screenshot_url: String  // Private ticket screenshot
+                    let last_entry: String?  // Actual last entry timestamp
                     let last_entry_type: String?
                     let last_entry_label: String?
                     let seller_username: String?
@@ -539,6 +541,7 @@ class APIService {
                     status: "available",
                     is_listed: true,
                     ticket_screenshot_url: screenshotUrl,  // User's ticket screenshot
+                    last_entry: lastEntry,  // Actual last entry timestamp
                     last_entry_type: lastEntryType,
                     last_entry_label: lastEntryLabel,
                     seller_username: sellerUsername,
@@ -585,6 +588,10 @@ class APIService {
                 let iso8601Formatter = ISO8601DateFormatter()
                 let eventDateString = iso8601Formatter.string(from: eventDate)
 
+                // Parse last entry time (same format as event date)
+                let lastEntryDate = dateFormatter.date(from: event.lastEntry)
+                let lastEntryString = lastEntryDate.map { iso8601Formatter.string(from: $0) }
+
                 // Generate event ID from URL
                 let eventId = event.url.replacingOccurrences(of: "https://", with: "")
                     .replacingOccurrences(of: "http://", with: "")
@@ -609,6 +616,7 @@ class APIService {
                     let status: String
                     let is_listed: Bool
                     let ticket_screenshot_url: String?  // Private ticket screenshot (nil for Fixr transfers)
+                    let last_entry: String?  // Actual last entry timestamp
                     let last_entry_type: String?
                     let last_entry_label: String?
                     let seller_username: String?
@@ -635,6 +643,7 @@ class APIService {
                     status: "available",
                     is_listed: true,
                     ticket_screenshot_url: nil,  // No screenshot for Fixr transfers
+                    last_entry: lastEntryString,  // Parsed last entry timestamp
                     last_entry_type: event.lastEntryType,
                     last_entry_label: event.lastEntryLabel,
                     seller_username: sellerUsername,

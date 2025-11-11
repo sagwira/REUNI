@@ -348,6 +348,7 @@ struct FatsomaScreenshotPreviewView: View {
             pricePerTicket: price,
             screenshotUrl: screenshotUrl,
             ticketType: extractedData.ticketType,
+            lastEntry: event.lastEntry != "TBA" ? event.lastEntry : nil,
             lastEntryType: lastEntryInfo?.type,
             lastEntryLabel: lastEntryInfo?.label,
             sellerUsername: currentUser.username,

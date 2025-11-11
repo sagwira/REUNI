@@ -427,6 +427,7 @@ struct FatsomaCombinedUploadView: View {
             pricePerTicket: price,
             screenshotUrl: screenshotUrl,
             ticketType: nil,
+            lastEntry: event.lastEntry != "TBA" ? event.lastEntry : nil,
             lastEntryType: nil,
             lastEntryLabel: nil,
             sellerUsername: currentUser.username,

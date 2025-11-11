@@ -30,6 +30,9 @@ struct EditProfileView: View {
 
             ScrollView {
                 VStack(spacing: 24) {
+                    // Top spacer
+                    Color.clear.frame(height: 0)
+
                     // Profile Picture Section
                     VStack(spacing: 16) {
                         // Current/New Profile Picture with Camera Icon Overlay
@@ -175,9 +178,23 @@ struct EditProfileView: View {
                 }
                 .padding(.bottom, 40)
             }
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
         }
         .navigationTitle("Edit Profile")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Save") {
+                    Task {
+                        await saveProfile()
+                    }
+                }
+                .disabled(isLoading)
+            }
+        }
         .onAppear {
             // Initialize username with current value
             username = authManager.currentUser?.username ?? ""

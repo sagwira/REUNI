@@ -14,43 +14,94 @@ struct MainContainerView: View {
     @Bindable var themeManager: ThemeManager
     @State private var navigationCoordinator = NavigationCoordinator()
     @State private var notificationCount = 0
+    @State private var isAdmin = false
+    @State private var showUploadSheet = false
+    @State private var showProfileCompletion = false
+    @State private var isCheckingProfile = true
 
     private let offerService = OfferService()
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            // Main Content Area
-            NavigationStack {
-                Group {
-                    switch navigationCoordinator.currentScreen {
-                    case .home, .tickets: // tickets redirects to home
-                        HomeView(authManager: authManager, navigationCoordinator: navigationCoordinator, themeManager: themeManager)
-                            .environment(navigationCoordinator)
-                    case .myListings:
-                        MyTicketsView(authManager: authManager, navigationCoordinator: navigationCoordinator, themeManager: themeManager)
-                            .environment(navigationCoordinator)
-                    case .notifications:
-                        NotificationsView(authManager: authManager, themeManager: themeManager)
-                            .environment(navigationCoordinator)
-                    case .profile, .account, .settings, .friends: // Legacy cases redirect to profile
-                        ProfileView(authManager: authManager, navigationCoordinator: navigationCoordinator, themeManager: themeManager)
-                            .environment(navigationCoordinator)
-                    }
-                }
-                .navigationBarHidden(true)
+        TabView(selection: $navigationCoordinator.currentScreen) {
+            // Home Tab
+            Tab(value: .home) {
+                HomeView(authManager: authManager, navigationCoordinator: navigationCoordinator, themeManager: themeManager)
+                    .environment(navigationCoordinator)
+            } label: {
+                Label("Home", systemImage: "house.fill")
             }
-            .padding(.bottom, 84) // Space for tab bar
 
-            // Custom Tab Bar (always visible)
-            CustomTabBarView(
-                navigationCoordinator: navigationCoordinator,
-                themeManager: themeManager,
-                notificationCount: notificationCount
-            )
+            // My Tickets / Admin Tab
+            if isAdmin {
+                Tab(value: .admin) {
+                    AdminDashboardView()
+                } label: {
+                    Label("Admin", systemImage: "shield.checkmark.fill")
+                }
+            } else {
+                Tab(value: .myListings) {
+                    MyTicketsView(authManager: authManager, navigationCoordinator: navigationCoordinator, themeManager: themeManager)
+                        .environment(navigationCoordinator)
+                } label: {
+                    Label("Tickets", systemImage: "ticket.fill")
+                }
+            }
+
+            // Upload Tab (MIDDLE POSITION)
+            Tab(value: .upload) {
+                Color.clear
+            } label: {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 32))
+            }
+
+            // Notifications Tab
+            Tab(value: .notifications) {
+                NotificationsView(authManager: authManager, themeManager: themeManager, navigationCoordinator: navigationCoordinator)
+                    .environment(navigationCoordinator)
+            } label: {
+                Label("Alerts", systemImage: "bell.fill")
+            }
+            .badge(notificationCount > 0 ? notificationCount : 0)
+
+            // Profile Tab
+            Tab(value: .profile) {
+                ProfileView(authManager: authManager, navigationCoordinator: navigationCoordinator, themeManager: themeManager)
+                    .environment(navigationCoordinator)
+            } label: {
+                Label("Profile", systemImage: "person.fill")
+            }
         }
-        .ignoresSafeArea(.keyboard) // Keep tab bar visible when keyboard shows
+        .tabBarMinimizeBehavior(.onScrollDown)
+        .tint(Color.red)
+        .onChange(of: navigationCoordinator.currentScreen) { oldValue, newValue in
+            if newValue == .upload {
+                showUploadSheet = true
+                // Return to previous screen
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    navigationCoordinator.navigate(to: navigationCoordinator.previousScreen)
+                }
+            }
+        }
+        .fullScreenCover(isPresented: $showUploadSheet) {
+            NewUploadTicketView()
+        }
+        .fullScreenCover(isPresented: $showProfileCompletion) {
+            ProfileCompletionCoordinator(
+                authManager: authManager,
+                onComplete: {
+                    showProfileCompletion = false
+                }
+            )
+            .interactiveDismissDisabled() // Prevent swipe to dismiss
+        }
         .task {
+            await checkProfileCompletion()
             await loadNotificationCount()
+            await checkAdminStatus()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToMyPurchases"))) { _ in
+            navigationCoordinator.navigate(to: .myListings)
         }
     }
 
@@ -60,12 +111,14 @@ struct MainContainerView: View {
             return
         }
 
+        let normalizedUserId = userId.uuidString.lowercased()
+
         do {
             // Fetch pending ticket offers (as seller)
             let pendingOffersResponse = try await supabase
                 .from("ticket_offers")
                 .select("id", head: true, count: .exact)
-                .eq("seller_id", value: userId.uuidString)
+                .eq("seller_id", value: normalizedUserId)
                 .eq("status", value: "pending")
                 .execute()
 
@@ -76,7 +129,7 @@ struct MainContainerView: View {
             let acceptedOffersResponse = try await supabase
                 .from("ticket_offers")
                 .select("expires_at")
-                .eq("buyer_id", value: userId.uuidString)
+                .eq("buyer_id", value: normalizedUserId)
                 .eq("status", value: "accepted")
                 .execute()
 
@@ -103,6 +156,74 @@ struct MainContainerView: View {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter.date(from: dateString) ?? ISO8601DateFormatter().date(from: dateString)
+    }
+
+    @MainActor
+    private func checkProfileCompletion() async {
+        guard let user = authManager.currentUser else {
+            isCheckingProfile = false
+            return
+        }
+
+        // Check if any required fields are missing
+        var isIncomplete = false
+
+        // Check name (full_name must contain at least 2 words)
+        if user.fullName.isEmpty || user.fullName.split(separator: " ").count < 2 {
+            isIncomplete = true
+        }
+
+        // Check date of birth
+        if user.dateOfBirth == nil {
+            isIncomplete = true
+        }
+
+        // Check university
+        if user.university.isEmpty {
+            isIncomplete = true
+        }
+
+        // Check phone number
+        if user.phoneNumber.isEmpty {
+            isIncomplete = true
+        }
+
+        // Check username
+        if user.username.isEmpty {
+            isIncomplete = true
+        }
+
+        showProfileCompletion = isIncomplete
+        isCheckingProfile = false
+    }
+
+    private func checkAdminStatus() async {
+        guard let userId = authManager.currentUserId else {
+            isAdmin = false
+            return
+        }
+
+        do {
+            struct UserRole: Codable {
+                let role: String
+            }
+
+            let response = try await supabase
+                .from("user_roles")
+                .select("role")
+                .eq("user_id", value: userId.uuidString.lowercased())
+                .limit(1)
+                .execute()
+
+            let decoder = JSONDecoder()
+            let roles = try decoder.decode([UserRole].self, from: response.data)
+
+            // Check if user has admin role
+            isAdmin = roles.first?.role == "admin"
+        } catch {
+            // User doesn't have a role or error occurred - default to not admin
+            isAdmin = false
+        }
     }
 }
 

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirm Email Change - REUNI</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 40px 40px 30px; border-radius: 12px 12px 0 0; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 32px; font-weight: 700;">📧 Confirm Email Change</h1>
+              <p style="margin: 10px 0 0; color: rgba(255,255,255,0.9); font-size: 16px;">Verify your new email address</p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding: 40px;">
+              <p style="margin: 0; color: #333; font-size: 18px; line-height: 1.6;">Hi there,</p>
+              <p style="margin: 16px 0 0; color: #666; font-size: 16px; line-height: 1.6;">
+                You recently requested to change the email address associated with your REUNI account. Click the button below to confirm this change.
+              </p>
+
+              <!-- CTA Button -->
+              <div style="text-align: center; margin: 32px 0;">
+                <a href="{{ .ConfirmationURL }}" style="display: inline-block; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #ffffff; text-decoration: none; padding: 16px 48px; border-radius: 8px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);">
+                  Confirm Email Change
+                </a>
+              </div>
+
+              <p style="margin: 24px 0 0; color: #666; font-size: 14px; line-height: 1.6;">
+                Or copy and paste this link into your browser:
+              </p>
+              <p style="margin: 8px 0 0; color: #f59e0b; font-size: 13px; word-break: break-all; font-family: monospace;">
+                {{ .ConfirmationURL }}
+              </p>
+
+              <!-- Change Details -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 32px; background-color: #f8f9fa; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                <tr>
+                  <td style="padding: 24px;">
+                    <h3 style="margin: 0 0 16px; color: #333; font-size: 18px; font-weight: 600;">What This Means:</h3>
+                    <ul style="margin: 0; padding-left: 20px; color: #666; font-size: 15px; line-height: 1.8;">
+                      <li>This will become your primary email for signing in</li>
+                      <li>All future notifications will be sent here</li>
+                      <li>Your account data and tickets remain unchanged</li>
+                    </ul>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Security Warning -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 24px; background-color: #fef2f2; border-radius: 8px; border-left: 4px solid #ef4444;">
+                <tr>
+                  <td style="padding: 20px;">
+                    <h4 style="margin: 0 0 8px; color: #991b1b; font-size: 15px; font-weight: 600;">⚠️ Didn't Request This?</h4>
+                    <p style="margin: 0; color: #991b1b; font-size: 13px; line-height: 1.6;">
+                      If you didn't request this email change, please ignore this message and contact our support team immediately at <a href="mailto:support@reuniapp.com" style="color: #ef4444; text-decoration: none;">support@reuniapp.com</a>. Your account security is important to us.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Expiry Notice -->
+              <p style="margin: 24px 0 0; color: #999; font-size: 13px; line-height: 1.6;">
+                🔒 This confirmation link will expire in 24 hours for security reasons.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 24px 40px; background-color: #f8f9fa; border-radius: 0 0 12px 12px; text-align: center;">
+              <p style="margin: 0; color: #999; font-size: 12px;">
+                © 2025 REUNI. All rights reserved.<br>
+                Secure student ticket marketplace.
+              </p>
+              <p style="margin: 12px 0 0; color: #999; font-size: 12px;">
+                Questions? Contact us at <a href="mailto:support@reuniapp.com" style="color: #f59e0b; text-decoration: none;">support@reuniapp.com</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

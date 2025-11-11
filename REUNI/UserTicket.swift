@@ -23,6 +23,7 @@ struct UserTicket: Identifiable, Codable, Hashable {
     let currency: String?
     let eventImageUrl: String?  // Maps to ticket_image_url from DB
     let ticketScreenshotUrl: String?  // Private ticket screenshot (only sent to buyer)
+    let lastEntry: String?  // Actual last entry time (TIMESTAMPTZ from DB)
     let lastEntryType: String?
     let lastEntryLabel: String?
     let status: String?  // Maps to is_listed (boolean)
@@ -53,6 +54,7 @@ struct UserTicket: Identifiable, Codable, Hashable {
         case currency
         case eventImageUrl = "event_image_url"  // DB has event_image_url (FIXED!)
         case ticketScreenshotUrl = "ticket_screenshot_url"
+        case lastEntry = "last_entry"  // Actual last entry datetime
         case lastEntryType = "last_entry_type"
         case lastEntryLabel = "last_entry_label"
         case status = "ticket_source"  // Map to ticket_source for compatibility

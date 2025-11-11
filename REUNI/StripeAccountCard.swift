@@ -27,7 +27,7 @@ struct StripeAccountCard: View {
 
                 Spacer()
 
-                StatusBadge(status: status, themeManager: themeManager)
+                StripeStatusBadge(status: status, themeManager: themeManager)
             }
 
             // Status-specific content
@@ -71,7 +71,7 @@ struct StripeAccountCard: View {
 }
 
 // MARK: - Status Badge
-struct StatusBadge: View {
+struct StripeStatusBadge: View {
     let status: StripeSellerService.SellerAccountStatus
     let themeManager: ThemeManager
 

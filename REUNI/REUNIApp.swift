@@ -40,6 +40,8 @@ struct REUNIApp: App {
                     }
                 } else if authManager.isAuthenticated {
                     MainContainerView(authManager: authManager, themeManager: themeManager)
+                        .environment(authManager)
+                        .environment(themeManager)
                 } else {
                     LoginView(authManager: authManager)
                 }

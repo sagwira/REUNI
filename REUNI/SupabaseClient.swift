@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import Supabase
+@_exported import Supabase
 
 // MARK: - Secure Supabase Client
 // API key is loaded from Info.plist to keep it out of git

@@ -456,16 +456,8 @@ struct TicketDetailView: View {
     // MARK: - Helper Functions
 
     private func formatEventDate(_ dateString: String) -> String {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withFullDate, .withTime, .withColonSeparatorInTime]
-
-        if let date = formatter.date(from: dateString) {
-            let displayFormatter = DateFormatter()
-            displayFormatter.dateStyle = .full
-            displayFormatter.timeStyle = .short
-            return displayFormatter.string(from: date)
-        }
-        return dateString
+        // Use Fatsoma-style date format: "Thu 13th Nov"
+        return dateString.toShortFormattedDate()
     }
 
     private func formatPurchaseDate(_ dateString: String) -> String {
@@ -686,16 +678,8 @@ struct EventDetailsSheet: View {
     }
 
     private func formatEventDate(_ dateString: String) -> String {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withFullDate, .withTime, .withColonSeparatorInTime]
-
-        if let date = formatter.date(from: dateString) {
-            let displayFormatter = DateFormatter()
-            displayFormatter.dateStyle = .full
-            displayFormatter.timeStyle = .short
-            return displayFormatter.string(from: date)
-        }
-        return dateString
+        // Use Fatsoma-style date format: "Thu 13th Nov"
+        return dateString.toShortFormattedDate()
     }
 
     private func formatPurchaseDate(_ dateString: String) -> String {
@@ -744,6 +728,7 @@ struct ShareSheet: UIViewControllerRepresentable {
             currency: "GBP",
             eventImageUrl: "https://example.com/event.jpg",
             ticketScreenshotUrl: "https://example.com/ticket.png",
+            lastEntry: "2025-11-16T02:00:00Z",
             lastEntryType: nil,
             lastEntryLabel: nil,
             status: "marketplace",

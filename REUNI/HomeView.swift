@@ -46,96 +46,140 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-                ZStack {
-                    // Background - Dynamic Theme
-                    themeManager.backgroundColor
-                        .ignoresSafeArea()
+            ZStack(alignment: .top) {
+                // Background - Edge to Edge
+                themeManager.backgroundColor
+                    .ignoresSafeArea()
 
-                VStack(spacing: 0) {
-                    // Search and Filter Bar
-                    HStack(spacing: 12) {
-                        // Search Field - Liquid Glass Style
-                            HStack(spacing: 8) {
-                                Image(systemName: "magnifyingglass")
-                                    .foregroundStyle(themeManager.secondaryText)
-                                    .font(.system(size: 16, weight: .medium))
+                // Events Feed - Full Bleed
+                if filteredTickets.isEmpty {
+                    VStack(spacing: 16) {
+                        Spacer()
 
-                                TextField("Search events, venues, or users...", text: $searchText)
-                                    .font(.system(size: 15))
-                                    .foregroundStyle(themeManager.primaryText)
+                        Image(systemName: "ticket")
+                            .font(.system(size: 60))
+                            .foregroundStyle(themeManager.secondaryText.opacity(0.5))
+
+                        Text("No events found")
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(themeManager.secondaryText)
+
+                        Text("Try adjusting your filters")
+                            .font(.subheadline)
+                            .foregroundStyle(themeManager.secondaryText.opacity(0.7))
+
+                        Spacer()
+                    }
+                } else {
+                    ScrollView(showsIndicators: false) {
+                        LazyVStack(spacing: 16) {
+                            // Scroll offset tracker at the top
+                            GeometryReader { geometry in
+                                let offset = geometry.frame(in: .named("scrollView")).minY
+                                Color.clear
+                                    .preference(key: ScrollOffsetPreferenceKey.self, value: offset)
                             }
-                            .padding(12)
-                            .background(themeManager.glassMaterial, in: RoundedRectangle(cornerRadius: 14))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .stroke(themeManager.borderColor, lineWidth: 1)
-                            )
-                            .shadow(color: themeManager.shadowColor(opacity: 0.1), radius: 8, x: 0, y: 4)
+                            .frame(height: 0)
 
-                            // Filter Button - Liquid Glass Style
-                            Button(action: {
-                                showFilters = true
-                            }) {
-                                Image(systemName: "slider.horizontal.3")
-                                    .foregroundStyle(themeManager.accentColor)
-                                    .font(.system(size: 16, weight: .medium))
-                                    .frame(width: 44, height: 44)
-                                    .background(themeManager.glassMaterial, in: RoundedRectangle(cornerRadius: 14))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 14)
-                                            .stroke(themeManager.borderColor, lineWidth: 1)
-                                    )
-                                    .shadow(color: themeManager.shadowColor(opacity: 0.1), radius: 8, x: 0, y: 4)
+                            // Top spacer for floating search bar
+                            Color.clear.frame(height: 80)
+
+                            ForEach(filteredTickets) { ticket in
+                                TicketCard(
+                                    authManager: authManager,
+                                    event: mapTicketToEvent(ticket),
+                                    currentUserId: authManager.currentUserId,
+                                    saleStatus: ticket.saleStatus
+                                )
+                                .transition(.asymmetric(
+                                    insertion: .opacity.combined(with: .move(edge: .top)),
+                                    removal: .opacity.combined(with: .scale(scale: 0.8))
+                                ))
                             }
                         }
+                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: filteredTickets.map { $0.id })
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 16)
+                    }
+                    .coordinateSpace(name: "scrollView")
+                    .scrollEdgeEffectStyle(.soft, for: .all)
+                    .onPreferenceChange(ScrollOffsetPreferenceKey.self) { offset in
+                        // Negative offset means scrolling down, positive means scrolling up
+                        navigationCoordinator.updateScrollOffset(-offset)
+                    }
+                    .refreshable {
+                        await loadMarketplaceTickets()
+                    }
+                }
+
+                // Floating Search Bar with Liquid Glass
+                VStack(spacing: 0) {
+                    HStack(spacing: 12) {
+                        // Search Field - Liquid Glass Design
+                        HStack(spacing: 8) {
+                            Image(systemName: "magnifyingglass")
+                                .foregroundStyle(.secondary)
+                                .font(.system(size: 16, weight: .medium))
+                                .imageScale(.medium)
+
+                            TextField("Search events...", text: $searchText)
+                                .font(.system(size: 15))
+                                .foregroundStyle(.primary)
+                                .textFieldStyle(.plain)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .fill(.regularMaterial)
+                                    .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .strokeBorder(.quaternary, lineWidth: 0.5)
+                            }
+                        }
+
+                        // Filter Button - Liquid Glass Design
+                        Button(action: {
+                            showFilters = true
+                        }) {
+                            Image(systemName: "slider.horizontal.3")
+                                .font(.system(size: 18, weight: .medium))
+                                .imageScale(.medium)
+                                .foregroundStyle(Color.red)
+                                .frame(width: 48, height: 48)
+                                .background {
+                                    ZStack {
+                                        Circle()
+                                            .fill(.regularMaterial)
+                                            .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+
+                                        Circle()
+                                            .strokeBorder(.quaternary, lineWidth: 0.5)
+                                    }
+                                }
+                        }
+                        .buttonStyle(.plain)
+                    }
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
-                    .padding(.bottom, 8)
-                    .background(themeManager.backgroundColor)
+                    .padding(.bottom, 12)
+                    .background(
+                        LinearGradient(
+                            colors: [
+                                themeManager.backgroundColor,
+                                themeManager.backgroundColor.opacity(0.8),
+                                themeManager.backgroundColor.opacity(0)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .ignoresSafeArea(edges: .top)
+                    )
 
-                    // Events Feed
-                    if filteredTickets.isEmpty {
-                        VStack(spacing: 16) {
-                            Spacer()
-
-                            Image(systemName: "ticket")
-                                .font(.system(size: 60))
-                                .foregroundStyle(themeManager.secondaryText.opacity(0.5))
-
-                            Text("No events found")
-                                .font(.title3)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(themeManager.secondaryText)
-
-                            Text("Try adjusting your filters")
-                                .font(.subheadline)
-                                .foregroundStyle(themeManager.secondaryText.opacity(0.7))
-
-                            Spacer()
-                        }
-                    } else {
-                        ScrollView {
-                            LazyVStack(spacing: 16) {
-                                ForEach(filteredTickets) { ticket in
-                                    TicketCard(
-                                        authManager: authManager,
-                                        event: mapTicketToEvent(ticket),
-                                        currentUserId: authManager.currentUserId,
-                                        saleStatus: ticket.saleStatus
-                                    )
-                                    .transition(.asymmetric(
-                                        insertion: .opacity.combined(with: .move(edge: .top)),
-                                        removal: .opacity.combined(with: .scale(scale: 0.8))
-                                    ))
-                                }
-                            }
-                            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: filteredTickets.map { $0.id })
-                            .padding(16)
-                        }
-                        .refreshable {
-                            await loadMarketplaceTickets()
-                        }
-                    }
+                    Spacer()
                 }
             }
             .navigationTitle("")
@@ -191,8 +235,13 @@ struct HomeView: View {
         let dateFormatter = ISO8601DateFormatter()
         let eventDate = dateFormatter.date(from: ticket.eventDate ?? "") ?? Date()
 
-        // For UserTicket, we don't have separate last_entry, so use event date
-        let lastEntry = eventDate
+        // Parse last entry time from database, fallback to event date if not set
+        let lastEntry: Date
+        if let lastEntryString = ticket.lastEntry {
+            lastEntry = dateFormatter.date(from: lastEntryString) ?? eventDate
+        } else {
+            lastEntry = eventDate
+        }
 
         // Parse UUID from string, use random UUID as fallback
         let ticketId = UUID(uuidString: ticket.id) ?? UUID()
@@ -293,6 +342,15 @@ struct HomeView: View {
         realtimeTask = nil
         realtimeChannel = nil
         print("🔌 Unsubscribed from real-time updates")
+    }
+}
+
+// MARK: - Scroll Offset Tracking
+struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 

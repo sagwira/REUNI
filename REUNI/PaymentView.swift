@@ -38,6 +38,8 @@ struct PaymentView: View {
     @State private var isProcessing = false
     @State private var showError = false
     @State private var errorMessage = ""
+    @State private var showSuccessView = false
+    @State private var transactionId: String?
 
     // Calculated values
     private var ticketPrice: Double { totalAmount }
@@ -192,6 +194,28 @@ struct PaymentView: View {
             } message: {
                 Text(errorMessage)
             }
+            .fullScreenCover(isPresented: $showSuccessView) {
+                PaymentSuccessView(
+                    event: event,
+                    totalAmount: totalAmount,
+                    transactionId: transactionId,
+                    onViewTicket: {
+                        // Navigate to My Purchases tab
+                        showSuccessView = false
+                        dismiss()
+                        // Post notification to switch to My Purchases tab
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("SwitchToMyPurchases"),
+                            object: nil
+                        )
+                    },
+                    onDismiss: {
+                        // Just dismiss everything and go back to home
+                        showSuccessView = false
+                        dismiss()
+                    }
+                )
+            }
         }
     }
 
@@ -267,8 +291,9 @@ struct PaymentView: View {
         case .completed:
             // Payment successful!
             print("✅ Payment completed successfully")
-            onPaymentComplete(event.id.uuidString) // Transaction ID will be updated by webhook
-            dismiss()
+            transactionId = event.id.uuidString // Store transaction ID
+            onPaymentComplete(event.id.uuidString) // Notify parent
+            showSuccessView = true // Show success screen instead of dismissing
 
         case .canceled:
             // User canceled

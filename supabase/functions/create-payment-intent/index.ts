@@ -5,6 +5,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import Stripe from "https://esm.sh/stripe@14.0.0?target=deno";
+import {
+  handleCorsPreFlight,
+  createSecureSuccessResponse,
+  createSecureErrorResponse,
+} from "../_shared/security-headers.ts";
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
   apiVersion: '2023-10-16',
@@ -17,14 +22,9 @@ const platformFeePercentage = parseFloat(Deno.env.get('PLATFORM_FEE_PERCENTAGE')
 const flatFee = parseFloat(Deno.env.get('FLAT_FEE') || '1.00'); // £1.00 flat booking fee
 
 serve(async (req) => {
-  // CORS headers
+  // CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-      },
-    });
+    return handleCorsPreFlight();
   }
 
   try {
@@ -251,40 +251,18 @@ serve(async (req) => {
     console.log('✅ Payment intent created successfully');
     console.log('   Payment Intent ID:', paymentIntent.id);
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        client_secret: paymentIntent.client_secret,
-        ephemeral_key: ephemeralKey.secret,
-        customer: customerId,
-        paymentIntentId: paymentIntent.id,
-        amount: ticketPrice,
-        platformFee: platformFee,
-        sellerAmount: sellerAmount,
-        currency: 'gbp',
-      }),
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        status: 200,
-      }
-    );
+    return createSecureSuccessResponse({
+      client_secret: paymentIntent.client_secret,
+      ephemeral_key: ephemeralKey.secret,
+      customer: customerId,
+      paymentIntentId: paymentIntent.id,
+      amount: ticketPrice,
+      platformFee: platformFee,
+      sellerAmount: sellerAmount,
+      currency: 'gbp',
+    });
   } catch (error) {
     console.error('Error creating payment intent:', error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message,
-      }),
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        status: 400,
-      }
-    );
+    return createSecureErrorResponse(error.message, 400);
   }
 });

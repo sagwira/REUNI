@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirm Your Email - REUNI</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #FF3B30 0%, #FF6B6B 100%); padding: 40px 40px 30px; border-radius: 12px 12px 0 0; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 32px; font-weight: 700;">🎉 Welcome to REUNI!</h1>
+              <p style="margin: 10px 0 0; color: rgba(255,255,255,0.9); font-size: 16px;">Confirm your email to get started</p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding: 40px;">
+              <p style="margin: 0; color: #333; font-size: 18px; line-height: 1.6;">Hi there,</p>
+              <p style="margin: 16px 0 0; color: #666; font-size: 16px; line-height: 1.6;">
+                Thanks for signing up for REUNI, the secure student ticket marketplace! Click the button below to confirm your email address and activate your account.
+              </p>
+
+              <!-- CTA Button -->
+              <div style="text-align: center; margin: 32px 0;">
+                <a href="{{ .ConfirmationURL }}" style="display: inline-block; background: linear-gradient(135deg, #FF3B30 0%, #FF6B6B 100%); color: #ffffff; text-decoration: none; padding: 16px 48px; border-radius: 8px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3);">
+                  Confirm Email Address
+                </a>
+              </div>
+
+              <p style="margin: 24px 0 0; color: #666; font-size: 14px; line-height: 1.6;">
+                Or copy and paste this link into your browser:
+              </p>
+              <p style="margin: 8px 0 0; color: #3b82f6; font-size: 13px; word-break: break-all; font-family: monospace;">
+                {{ .ConfirmationURL }}
+              </p>
+
+              <!-- Features -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 32px; background-color: #f8f9fa; border-radius: 8px; border-left: 4px solid #FF3B30;">
+                <tr>
+                  <td style="padding: 24px;">
+                    <h3 style="margin: 0 0 16px; color: #333; font-size: 18px; font-weight: 600;">What you can do with REUNI:</h3>
+                    <ul style="margin: 0; padding-left: 20px; color: #666; font-size: 15px; line-height: 1.8;">
+                      <li>Buy tickets safely with escrow protection</li>
+                      <li>Sell unwanted tickets securely</li>
+                      <li>Make offers on listings</li>
+                      <li>Get instant payouts to your Stripe account</li>
+                      <li>Access tickets in-app with barcodes</li>
+                    </ul>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Security Notice -->
+              <p style="margin: 24px 0 0; color: #999; font-size: 13px; line-height: 1.6;">
+                🔒 This link will expire in 24 hours for security reasons. If you didn't create a REUNI account, you can safely ignore this email.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 24px 40px; background-color: #f8f9fa; border-radius: 0 0 12px 12px; text-align: center;">
+              <p style="margin: 0; color: #999; font-size: 12px;">
+                © 2025 REUNI. All rights reserved.<br>
+                Secure student ticket marketplace.
+              </p>
+              <p style="margin: 12px 0 0; color: #999; font-size: 12px;">
+                Questions? Contact us at <a href="mailto:support@reuniapp.com" style="color: #FF3B30; text-decoration: none;">support@reuniapp.com</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

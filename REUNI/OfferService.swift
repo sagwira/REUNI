@@ -143,7 +143,7 @@ class OfferService {
             return offerResponse.offer.id
 
         } catch let error as OfferError {
-            print("❌ OfferError: \(error.localizedDescription ?? "Unknown")")
+            print("❌ OfferError: \(error.localizedDescription)")
             throw error
         } catch {
             print("❌ Network error: \(error.localizedDescription)")

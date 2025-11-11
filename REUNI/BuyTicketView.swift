@@ -411,14 +411,14 @@ struct BuyTicketView: View {
     }
 
     private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE, dd MMM, yyyy"
-        return formatter.string(from: date)
+        // Use Fatsoma-style date format: "Thu 13th Nov"
+        return date.toFatsomaFormat()
     }
 
     private func formatTime(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm a"
+        formatter.timeZone = TimeZone(identifier: "Europe/London") // UK timezone
         return formatter.string(from: date)
     }
 
@@ -426,6 +426,7 @@ struct BuyTicketView: View {
         let formatter = DateFormatter()
         // Show only time in 12-hour format (e.g., "11:30pm")
         formatter.dateFormat = "h:mma"
+        formatter.timeZone = TimeZone(identifier: "Europe/London") // UK timezone
         return formatter.string(from: date)
     }
 }
@@ -463,7 +464,7 @@ struct DetailRowModern: View {
 }
 
 // Legacy DetailRow for compatibility with other views
-struct DetailRow: View {
+struct BuyTicketDetailRow: View {
     let icon: String
     let label: String
     let value: String

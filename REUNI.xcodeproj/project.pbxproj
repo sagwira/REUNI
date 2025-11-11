@@ -283,8 +283,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-			
-);
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		246FEF282E969D9A00F0E570 /* Sources */ = {
