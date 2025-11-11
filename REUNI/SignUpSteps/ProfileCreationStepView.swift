@@ -185,25 +185,31 @@ struct ProfileCreationStepView: View {
     }
 
     private func createProfileInDatabase(userId: UUID, profilePictureUrl: String?) async throws {
-        var profile: [String: Any] = [
-            "id": userId.uuidString,
-            "full_name": "\(flowData.firstName) \(flowData.lastName)",
-            "email": flowData.email,
-            "phone_number": flowData.phoneNumber,
-            "university": flowData.university,
-            "date_of_birth": ISO8601DateFormatter().string(from: flowData.dateOfBirth),
-            "created_at": ISO8601DateFormatter().string(from: Date()),
-            "updated_at": ISO8601DateFormatter().string(from: Date())
-        ]
-
-        // Add optional fields only if they have values
-        if let profilePictureUrl = profilePictureUrl {
-            profile["profile_picture_url"] = profilePictureUrl
+        struct ProfileInsert: Encodable {
+            let id: String
+            let full_name: String
+            let email: String
+            let phone_number: String
+            let university: String
+            let date_of_birth: String
+            let profile_picture_url: String?
+            let bio: String?
+            let created_at: String
+            let updated_at: String
         }
 
-        if !bio.isEmpty {
-            profile["bio"] = bio
-        }
+        let profile = ProfileInsert(
+            id: userId.uuidString,
+            full_name: "\(flowData.firstName) \(flowData.lastName)",
+            email: flowData.email,
+            phone_number: flowData.phoneNumber,
+            university: flowData.university,
+            date_of_birth: ISO8601DateFormatter().string(from: flowData.dateOfBirth),
+            profile_picture_url: profilePictureUrl,
+            bio: bio.isEmpty ? nil : bio,
+            created_at: ISO8601DateFormatter().string(from: Date()),
+            updated_at: ISO8601DateFormatter().string(from: Date())
+        )
 
         try await supabase
             .from("profiles")

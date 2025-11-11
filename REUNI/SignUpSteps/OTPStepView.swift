@@ -146,7 +146,7 @@ struct OTPStepView: View {
         isVerifying = true
 
         do {
-            try await authManager.verifyOTP(email: flowData.email, token: flowData.otpCode)
+            _ = try await authManager.verifyOTP(email: flowData.email, token: flowData.otpCode)
             isVerifying = false
             onNext()  // Move to password creation
 
