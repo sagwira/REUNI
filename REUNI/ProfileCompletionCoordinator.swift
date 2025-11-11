@@ -195,10 +195,10 @@ struct ProfileCompletionCoordinator: View {
         }
 
         // Check phone number
-        if let phone = user.phoneNumber, !phone.isEmpty {
-            completionData.phoneNumber = phone
-        } else {
+        if user.phoneNumber.isEmpty {
             missing.append(.phoneNumber)
+        } else {
+            completionData.phoneNumber = user.phoneNumber
         }
 
         // Check username

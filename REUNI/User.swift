@@ -12,7 +12,7 @@ struct UserProfile: Codable {
     let email: String?
     var fullName: String
     let dateOfBirth: Date?
-    let phoneNumber: String?
+    var phoneNumber: String
     var username: String
     var university: String
     let city: String?

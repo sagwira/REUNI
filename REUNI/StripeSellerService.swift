@@ -154,9 +154,9 @@ class StripeSellerService {
 
             // Format phone number to E.164 format for Stripe (UK: +44)
             var formattedPhone: String? = nil
-            if let phone = userProfile.phoneNumber, !phone.isEmpty {
+            if !userProfile.phoneNumber.isEmpty {
                 // Remove spaces and dashes
-                let cleaned = phone.replacingOccurrences(of: " ", with: "")
+                let cleaned = userProfile.phoneNumber.replacingOccurrences(of: " ", with: "")
                                   .replacingOccurrences(of: "-", with: "")
 
                 // If starts with 0, replace with +44
@@ -169,7 +169,7 @@ class StripeSellerService {
                 }
             }
 
-            print("📱 Formatted phone: \(userProfile.phoneNumber ?? "none") -> \(formattedPhone ?? "none")")
+            print("📱 Formatted phone: \(userProfile.phoneNumber) -> \(formattedPhone ?? "none")")
 
             let request = CreateAccountRequest(
                 email: userProfile.email ?? "",
