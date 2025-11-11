@@ -36,13 +36,14 @@ struct TicketSourceSelectionView: View {
                     }
                 )
 
-                TicketSourceRow(
-                    source: .fixr,
-                    isSelected: selectedSource == .fixr,
-                    onTap: {
-                        selectedSource = .fixr
-                    }
-                )
+                // FIXR DISABLED - Focusing on Fatsoma tickets only
+                // TicketSourceRow(
+                //     source: .fixr,
+                //     isSelected: selectedSource == .fixr,
+                //     onTap: {
+                //         selectedSource = .fixr
+                //     }
+                // )
             }
             .padding(.horizontal, 20)
 
