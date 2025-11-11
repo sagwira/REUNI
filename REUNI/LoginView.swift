@@ -152,7 +152,7 @@ struct LoginView: View {
             .sheet(isPresented: $showForgotPassword) {
                 ForgotPasswordView(authManager: authManager)
             }
-            .sheet(isPresented: $showSignUp) {
+            .fullScreenCover(isPresented: $showSignUp) {
                 SignUpFlowCoordinator(authManager: authManager)
             }
         }

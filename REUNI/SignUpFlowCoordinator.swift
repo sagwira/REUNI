@@ -98,21 +98,15 @@ struct SignUpFlowCoordinator: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Same background as login/home
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.4, green: 0.0, blue: 0.0),
-                        Color(red: 0.2, green: 0.0, blue: 0.0)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
+                // Clean white background matching app pages
+                Color(uiColor: .systemBackground)
+                    .ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     // Progress Bar
                     ProgressBarView(progress: currentStep.progress)
-                        .padding(.top, 60)
+                        .padding(.top, 16)
+                        .padding(.bottom, 8)
 
                     // Step Content
                     stepView
@@ -133,7 +127,7 @@ struct SignUpFlowCoordinator: View {
                                 Text("Cancel")
                             }
                         }
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.primary)
                     }
                 }
             }
@@ -214,12 +208,12 @@ struct ProgressBarView: View {
             ZStack(alignment: .leading) {
                 // Background
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.white.opacity(0.2))
+                    .fill(Color.gray.opacity(0.2))
                     .frame(height: 4)
 
-                // Progress
+                // Progress - burgundy accent color
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.white)
+                    .fill(Color(red: 0.4, green: 0.0, blue: 0.0))
                     .frame(width: geometry.size.width * progress, height: 4)
                     .animation(.spring(response: 0.4, dampingFraction: 0.8), value: progress)
             }
