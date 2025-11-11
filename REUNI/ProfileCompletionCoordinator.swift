@@ -56,6 +56,7 @@ class ProfileCompletionData {
 
 enum ProfileField: String, CaseIterable {
     case name = "name"
+    case dateOfBirth = "date_of_birth"
     case university = "university"
     case phoneNumber = "phone_number"
     case username = "username"
@@ -63,6 +64,7 @@ enum ProfileField: String, CaseIterable {
     var title: String {
         switch self {
         case .name: return "What's your name?"
+        case .dateOfBirth: return "When's your birthday?"
         case .university: return "Where do you study?"
         case .phoneNumber: return "What's your phone number?"
         case .username: return "Choose a username"
@@ -72,6 +74,7 @@ enum ProfileField: String, CaseIterable {
     var subtitle: String {
         switch self {
         case .name: return "Let's complete your profile"
+        case .dateOfBirth: return "You must be 18 or older"
         case .university: return "Select your university"
         case .phoneNumber: return "We'll use this for account security"
         case .username: return "This will be visible to other users"
@@ -81,6 +84,7 @@ enum ProfileField: String, CaseIterable {
     var emoji: String {
         switch self {
         case .name: return "👋"
+        case .dateOfBirth: return "🎂"
         case .university: return "🎓"
         case .phoneNumber: return "📱"
         case .username: return "✨"
@@ -146,6 +150,11 @@ struct ProfileCompletionCoordinator: View {
                 completionData: completionData,
                 onNext: { await saveAndProceed() }
             )
+        case .dateOfBirth:
+            CompleteDOBView(
+                completionData: completionData,
+                onNext: { await saveAndProceed() }
+            )
         case .university:
             CompleteUniversityView(
                 completionData: completionData,
@@ -182,9 +191,28 @@ struct ProfileCompletionCoordinator: View {
             completionData.lastName = String(parts.dropFirst().joined(separator: " "))
         }
 
-        // Date of birth has NOT NULL constraint in DB, skip completion check
+        // Check date of birth - if it's the auto-generated default (exactly 18 years ago), treat as missing
         if let dob = user.dateOfBirth {
             completionData.dateOfBirth = dob
+
+            // Check if this is likely the default DOB (18 years ago from account creation)
+            // If the DOB year is exactly 18 years before current year, it's probably the default
+            let dobYear = Calendar.current.component(.year, from: dob)
+            let currentYear = Calendar.current.component(.year, from: Date())
+            let ageFromDOB = currentYear - dobYear
+
+            // If age is exactly 18 (within a day), it's likely the auto-generated default
+            if ageFromDOB == 18 {
+                let eighteenYearsAgo = Calendar.current.date(byAdding: .year, value: -18, to: Date()) ?? Date()
+                let daysDifference = Calendar.current.dateComponents([.day], from: dob, to: eighteenYearsAgo).day ?? 999
+
+                // If within 1 day of the default, treat as missing
+                if abs(daysDifference) <= 1 {
+                    missing.append(.dateOfBirth)
+                }
+            }
+        } else {
+            missing.append(.dateOfBirth)
         }
 
         // Check university
@@ -231,6 +259,15 @@ struct ProfileCompletionCoordinator: View {
                 try await supabase
                     .from("profiles")
                     .update(["full_name": fullName])
+                    .eq("id", value: userId.uuidString)
+                    .execute()
+
+            case .dateOfBirth:
+                let formatter = ISO8601DateFormatter()
+                formatter.formatOptions = [.withFullDate]
+                try await supabase
+                    .from("profiles")
+                    .update(["date_of_birth": formatter.string(from: completionData.dateOfBirth)])
                     .eq("id", value: userId.uuidString)
                     .execute()
 

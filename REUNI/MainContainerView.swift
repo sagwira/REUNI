@@ -173,8 +173,22 @@ struct MainContainerView: View {
             isIncomplete = true
         }
 
-        // Date of birth has NOT NULL constraint in DB, so always has a value
-        // Manually created accounts get default DOB, can edit in profile settings
+        // Check if date of birth is the auto-generated default (18 years ago)
+        if let dob = user.dateOfBirth {
+            let dobYear = Calendar.current.component(.year, from: dob)
+            let currentYear = Calendar.current.component(.year, from: Date())
+            let ageFromDOB = currentYear - dobYear
+
+            // If age is exactly 18, likely the auto-generated default
+            if ageFromDOB == 18 {
+                let eighteenYearsAgo = Calendar.current.date(byAdding: .year, value: -18, to: Date()) ?? Date()
+                let daysDifference = Calendar.current.dateComponents([.day], from: dob, to: eighteenYearsAgo).day ?? 999
+
+                if abs(daysDifference) <= 1 {
+                    isIncomplete = true
+                }
+            }
+        }
 
         // Check university
         if user.university.isEmpty {
