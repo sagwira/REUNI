@@ -23,13 +23,24 @@ struct ProfileView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Background
+                // Background - Edge to Edge
                 themeManager.backgroundColor
                     .ignoresSafeArea()
 
-                ScrollView {
+                ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {
-                        // Profile Header
+                        // Scroll offset tracker
+                        GeometryReader { geometry in
+                            let offset = geometry.frame(in: .named("profileScroll")).minY
+                            Color.clear
+                                .preference(key: ProfileScrollOffsetKey.self, value: offset)
+                        }
+                        .frame(height: 0)
+
+                        // Top spacer for status bar
+                        Color.clear.frame(height: 0)
+
+                        // Profile Header - Extended to top
                         VStack(spacing: 16) {
                             // Profile Picture
                             if let urlString = authManager.currentUser?.profilePictureUrl,
@@ -40,36 +51,76 @@ struct ProfileView: View {
                                         .scaledToFill()
                                 } placeholder: {
                                     Circle()
-                                        .fill(themeManager.cardBackground)
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [
+                                                    themeManager.cardBackground.opacity(0.8),
+                                                    themeManager.cardBackground.opacity(0.4)
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
                                         .overlay(
                                             ProgressView()
                                         )
                                 }
-                                .frame(width: 100, height: 100)
+                                .frame(width: 110, height: 110)
                                 .clipShape(Circle())
                                 .overlay(
                                     Circle()
-                                        .stroke(themeManager.borderColor, lineWidth: 2)
+                                        .strokeBorder(
+                                            LinearGradient(
+                                                colors: [
+                                                    .white.opacity(0.3),
+                                                    .white.opacity(0.1)
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ),
+                                            lineWidth: 3
+                                        )
                                 )
+                                .shadow(color: .black.opacity(0.15), radius: 20, x: 0, y: 10)
                             } else {
                                 Circle()
-                                    .fill(themeManager.cardBackground)
-                                    .frame(width: 100, height: 100)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                themeManager.accentColor.opacity(0.2),
+                                                themeManager.accentColor.opacity(0.1)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                    .frame(width: 110, height: 110)
                                     .overlay(
                                         Image(systemName: "person.fill")
-                                            .font(.system(size: 40))
-                                            .foregroundStyle(themeManager.secondaryText)
+                                            .font(.system(size: 45))
+                                            .foregroundStyle(themeManager.accentColor.opacity(0.6))
                                     )
                                     .overlay(
                                         Circle()
-                                            .stroke(themeManager.borderColor, lineWidth: 2)
+                                            .strokeBorder(
+                                                LinearGradient(
+                                                    colors: [
+                                                        .white.opacity(0.3),
+                                                        .white.opacity(0.1)
+                                                    ],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                ),
+                                                lineWidth: 3
+                                            )
                                     )
+                                    .shadow(color: .black.opacity(0.15), radius: 20, x: 0, y: 10)
                             }
 
                             // Username
                             if let username = authManager.currentUser?.username {
                                 Text("@\(username)")
-                                    .font(.system(size: 24, weight: .bold))
+                                    .font(.system(size: 26, weight: .bold))
                                     .foregroundStyle(themeManager.primaryText)
                             }
 
@@ -83,9 +134,15 @@ struct ProfileView: View {
                                         .font(.system(size: 15))
                                         .foregroundStyle(themeManager.secondaryText)
                                 }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 6)
+                                .background(
+                                    .ultraThinMaterial,
+                                    in: Capsule()
+                                )
                             }
                         }
-                        .padding(.top, 20)
+                        .padding(.top, 60)
 
                         // Stripe Seller Account Section
                         VStack(alignment: .leading, spacing: 16) {
@@ -184,10 +241,23 @@ struct ProfileView: View {
                         Spacer(minLength: 100) // Space for tab bar
                     }
                 }
+                .scrollContentBackground(.hidden)
+                .background(Color.clear)
+                .coordinateSpace(name: "profileScroll")
+                .scrollEdgeEffectStyle(.soft, for: .all)
+                .onPreferenceChange(ProfileScrollOffsetKey.self) { offset in
+                    navigationCoordinator.updateScrollOffset(-offset)
+                }
             }
             .navigationBarHidden(true)
             .task {
                 await loadStripeStatus()
+            }
+            .onAppear {
+                // Refresh profile data when view appears (e.g., after editing profile)
+                Task {
+                    await authManager.fetchUserProfile()
+                }
             }
             .fullScreenCover(isPresented: $showStripeOnboarding) {
                 StripeOnboardingView(
@@ -295,39 +365,75 @@ struct ProfileActionRow: View {
     let icon: String
     let title: String
     @Bindable var themeManager: ThemeManager
+    var isHighlighted: Bool = false
 
     var body: some View {
-        HStack(spacing: 16) {
-            Image(systemName: icon)
-                .font(.system(size: 22))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [Color.red, Color.red.opacity(0.8)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+        HStack(spacing: 14) {
+            // Icon with enhanced glass effect
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: isHighlighted ?
+                                [Color.green.opacity(0.2), Color.green.opacity(0.1)] :
+                                [Color.red.opacity(0.2), Color.red.opacity(0.1)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
-                )
-                .frame(width: 40, height: 40)
-                .background(themeManager.cardBackground)
-                .cornerRadius(10)
+                    .frame(width: 48, height: 48)
+
+                Image(systemName: icon)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: isHighlighted ?
+                                [Color.green, Color.green.opacity(0.8)] :
+                                [Color.red, Color.red.opacity(0.8)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            }
 
             Text(title)
-                .font(.system(size: 16, weight: .medium))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(themeManager.primaryText)
 
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(themeManager.secondaryText)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(themeManager.secondaryText.opacity(0.5))
         }
         .padding(16)
-        .background(themeManager.glassMaterial)
-        .cornerRadius(14)
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(themeManager.borderColor, lineWidth: 1)
+        .background(
+            .ultraThinMaterial,
+            in: RoundedRectangle(cornerRadius: 18, style: .continuous)
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: isHighlighted ?
+                            [Color.green.opacity(0.3), Color.green.opacity(0.1)] :
+                            [themeManager.borderColor.opacity(0.3), themeManager.borderColor.opacity(0.1)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 0.5
+                )
+        )
+        .shadow(color: themeManager.shadowColor(opacity: 0.08), radius: 12, x: 0, y: 6)
+    }
+}
+
+// MARK: - Scroll Offset Tracking
+struct ProfileScrollOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 
