@@ -45,6 +45,12 @@ fatsoma-scraper-api/.server.pid
 fatsoma-scraper-api/fatsoma_events.db
 fatsoma-scraper-api/fixr_scraper.log
 
+# Shell scripts with hardcoded credentials (DANGEROUS)
+**/*manual*.sh
+**/*test*.sh
+**/run_*.sh
+database/*.sh
+
 # Screenshots and HTML dumps (scraper debug files)
 fatsoma-scraper-api/*.html
 fatsoma-scraper-api/*.png
