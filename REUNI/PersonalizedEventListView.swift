@@ -162,9 +162,17 @@ struct PersonalizedEventListView: View {
             filteredEvents = []  // Show nothing until user searches
         } else {
             filteredEvents = events.filter { event in
-                event.name.localizedCaseInsensitiveContains(searchText) ||
-                event.company.localizedCaseInsensitiveContains(searchText) ||
-                event.location.localizedCaseInsensitiveContains(searchText)
+                // Match search text
+                let matchesSearch = event.name.localizedCaseInsensitiveContains(searchText) ||
+                    event.company.localizedCaseInsensitiveContains(searchText) ||
+                    event.location.localizedCaseInsensitiveContains(searchText)
+
+                // Quality filters: only show complete events
+                let hasImage = !event.imageUrl.isEmpty
+                let hasValidDate = !event.date.isEmpty && !event.date.uppercased().contains("TBA")
+                let hasTickets = !event.tickets.isEmpty
+
+                return matchesSearch && hasImage && hasValidDate && hasTickets
             }
         }
     }
@@ -173,6 +181,30 @@ struct PersonalizedEventListView: View {
 // MARK: - Event Card
 struct EventCard: View {
     let event: FatsomaEvent
+
+    private var formattedDate: String {
+        // Parse and format the event date
+        let iso8601Full = ISO8601DateFormatter()
+        iso8601Full.timeZone = TimeZone(secondsFromGMT: 0)  // UTC to prevent timezone shifts
+        if let parsedDate = iso8601Full.date(from: event.date) {
+            let formatter = DateFormatter()
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)  // UTC
+            formatter.dateFormat = "EEEE, MMMM d, yyyy" // "Monday, November 11, 2025"
+            return formatter.string(from: parsedDate)
+        }
+
+        let iso8601Date = ISO8601DateFormatter()
+        iso8601Date.timeZone = TimeZone(secondsFromGMT: 0)  // UTC
+        iso8601Date.formatOptions = [.withFullDate]
+        if let parsedDate = iso8601Date.date(from: event.date) {
+            let formatter = DateFormatter()
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)  // UTC
+            formatter.dateFormat = "EEEE, MMMM d, yyyy"
+            return formatter.string(from: parsedDate)
+        }
+
+        return event.date
+    }
 
     var body: some View {
         HStack(spacing: 14) {
@@ -247,11 +279,12 @@ struct EventCard: View {
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
 
+                // Show event date instead of last entry
                 HStack(spacing: 6) {
-                    Image(systemName: "clock.fill")
+                    Image(systemName: "calendar")
                         .font(.system(size: 12))
-                        .foregroundColor(.red)
-                    Text("Last Entry: \(event.lastEntry)")
+                        .foregroundColor(.blue)
+                    Text(formattedDate)
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(.secondary)
                 }
@@ -259,7 +292,7 @@ struct EventCard: View {
                 .padding(.vertical, 6)
                 .background(
                     Capsule()
-                        .fill(Color.red.opacity(0.08))
+                        .fill(Color.blue.opacity(0.08))
                 )
             }
 

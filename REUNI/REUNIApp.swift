@@ -8,9 +8,11 @@
 import SwiftUI
 import Supabase
 import StripePaymentSheet
+import UserNotifications
 
 @main
 struct REUNIApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var authManager = AuthenticationManager()
     @State private var themeManager = ThemeManager()
     @State private var showStripeSuccess = false

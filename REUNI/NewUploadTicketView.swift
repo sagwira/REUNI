@@ -290,6 +290,30 @@ struct TicketOptionRow: View {
     let event: FatsomaEvent
     let isSelected: Bool
 
+    private var formattedDate: String {
+        // Parse and format the event date
+        let iso8601Full = ISO8601DateFormatter()
+        iso8601Full.timeZone = TimeZone(secondsFromGMT: 0)  // UTC to prevent timezone shifts
+        if let parsedDate = iso8601Full.date(from: event.date) {
+            let formatter = DateFormatter()
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)  // UTC
+            formatter.dateFormat = "EEEE, MMMM d, yyyy" // "Monday, November 11, 2025"
+            return formatter.string(from: parsedDate)
+        }
+
+        let iso8601Date = ISO8601DateFormatter()
+        iso8601Date.timeZone = TimeZone(secondsFromGMT: 0)  // UTC
+        iso8601Date.formatOptions = [.withFullDate]
+        if let parsedDate = iso8601Date.date(from: event.date) {
+            let formatter = DateFormatter()
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)  // UTC
+            formatter.dateFormat = "EEEE, MMMM d, yyyy"
+            return formatter.string(from: parsedDate)
+        }
+
+        return event.date
+    }
+
     var body: some View {
         HStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
@@ -297,21 +321,32 @@ struct TicketOptionRow: View {
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(.primary)
 
-                if !event.lastEntry.isEmpty && event.lastEntry != "TBA" {
+                // Show event date instead of last entry
+                HStack(spacing: 6) {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 11))
+                        .foregroundColor(.blue)
+                    Text(formattedDate)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    Capsule()
+                        .fill(Color.blue.opacity(0.08))
+                )
+
+                // Show time if available
+                if !event.time.isEmpty && event.time != "TBA" {
                     HStack(spacing: 6) {
-                        Image(systemName: "clock.fill")
+                        Image(systemName: "clock")
                             .font(.system(size: 11))
-                            .foregroundColor(.red)
-                        Text("Last Entry: \(event.lastEntry)")
-                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.secondary)
+                        Text("Doors open: \(event.time)")
+                            .font(.system(size: 13))
                             .foregroundColor(.secondary)
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(
-                        Capsule()
-                            .fill(Color.red.opacity(0.08))
-                    )
                 }
             }
 

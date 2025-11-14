@@ -193,7 +193,7 @@ struct AccountSettingsView: View {
 
         // Load current values
         email = currentUser.email ?? ""
-        phoneNumber = currentUser.phoneNumber ?? ""
+        phoneNumber = currentUser.phoneNumber
 
         isLoading = false
     }

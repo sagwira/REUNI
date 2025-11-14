@@ -14,6 +14,7 @@ struct SettingsView: View {
     @Bindable var authManager: AuthenticationManager
     @Bindable var navigationCoordinator: NavigationCoordinator
     @Bindable var themeManager: ThemeManager
+    var networkMonitor: NetworkMonitor?
     @Environment(\.dismiss) var dismiss
 
     // Settings states
@@ -28,6 +29,7 @@ struct SettingsView: View {
     @State private var showDeleteError = false
     @State private var deleteErrorMessage = ""
     @State private var showMailComposer = false
+    @State private var isTestingOffline = false
 
     var body: some View {
         ZStack {
@@ -95,13 +97,31 @@ struct SettingsView: View {
 
                         // Notifications Section
                         SettingsSection(title: "Notifications", themeManager: themeManager) {
-                            SettingsToggleRow(
-                                icon: "bell.fill",
-                                title: "Enable Notifications",
-                                subtitle: "Offers, payments, and updates",
-                                isOn: $notificationsEnabled,
-                                themeManager: themeManager
-                            )
+                            VStack(spacing: 0) {
+                                SettingsToggleRow(
+                                    icon: "bell.fill",
+                                    title: "Enable Notifications",
+                                    subtitle: "Offers, payments, and updates",
+                                    isOn: $notificationsEnabled,
+                                    themeManager: themeManager
+                                )
+
+                                SettingsDivider(themeManager: themeManager)
+
+                                // Test Notification Button (for simulator testing)
+                                SettingsActionRow(
+                                    icon: "paperplane.fill",
+                                    title: "Test Notifications",
+                                    subtitle: "Preview notification styles (minimize app to see)",
+                                    themeManager: themeManager
+                                ) {
+                                    let impact = UIImpactFeedbackGenerator(style: .light)
+                                    impact.impactOccurred()
+                                    Task {
+                                        await testNotifications()
+                                    }
+                                }
+                            }
                         }
 
                         // Support & Help Section
@@ -167,6 +187,48 @@ struct SettingsView: View {
                                     impact.impactOccurred()
                                     openURL("https://reuniapp.com")
                                 }
+                            }
+                        }
+
+                        // Debug Section (only if networkMonitor is available)
+                        if networkMonitor != nil {
+                            SettingsSection(title: "Debug Tools", titleColor: .orange.opacity(0.9), themeManager: themeManager) {
+                                Button(action: {
+                                    testOfflineMode()
+                                }) {
+                                    HStack(spacing: 14) {
+                                        ZStack {
+                                            Circle()
+                                                .fill(Color.orange.opacity(0.12))
+                                                .frame(width: 44, height: 44)
+
+                                            Image(systemName: isTestingOffline ? "arrow.clockwise" : "wifi.slash")
+                                                .font(.system(size: 20, weight: .semibold))
+                                                .foregroundStyle(.orange)
+                                        }
+
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Text(isTestingOffline ? "Testing Offline..." : "Test Offline Mode")
+                                                .font(.system(size: 16, weight: .semibold))
+                                                .foregroundStyle(themeManager.primaryText)
+
+                                            Text("Show offline banner for 4 seconds")
+                                                .font(.system(size: 13))
+                                                .foregroundStyle(themeManager.secondaryText)
+                                        }
+
+                                        Spacer()
+
+                                        if isTestingOffline {
+                                            ProgressView()
+                                                .scaleEffect(0.8)
+                                        }
+                                    }
+                                    .padding(.vertical, 10)
+                                    .padding(.horizontal, 16)
+                                }
+                                .disabled(isTestingOffline)
+                                .buttonStyle(.plain)
                             }
                         }
 
@@ -290,6 +352,60 @@ struct SettingsView: View {
         guard let url = URL(string: urlString) else { return }
         UIApplication.shared.open(url)
     }
+
+    // MARK: - Test Offline Mode
+
+    private func testOfflineMode() {
+        guard let monitor = networkMonitor else { return }
+
+        isTestingOffline = true
+
+        // Enable debug mode and show offline banner
+        monitor.isDebugMode = true
+        monitor.debugOffline = true
+
+        // Haptic feedback
+        let impact = UIImpactFeedbackGenerator(style: .medium)
+        impact.impactOccurred()
+
+        print("🧪 Testing offline mode for 4 seconds...")
+
+        // After 4 seconds, restore online state
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
+            monitor.debugOffline = false
+            isTestingOffline = false
+            print("✅ Offline test complete - back online")
+        }
+    }
+
+    // MARK: - Test Notifications
+
+    @MainActor
+    private func testNotifications() async {
+        print("🧪 Testing notifications...")
+
+        // Send 6 different notification types with delays
+        await NotificationService.shared.scheduleTestNotification(type: "ticket_bought")
+
+        try? await Task.sleep(nanoseconds: 4_000_000_000) // 4 seconds
+        await NotificationService.shared.scheduleTestNotification(type: "ticket_purchased")
+
+        try? await Task.sleep(nanoseconds: 4_000_000_000) // 4 seconds
+        await NotificationService.shared.scheduleTestNotification(type: "offer_received")
+
+        try? await Task.sleep(nanoseconds: 4_000_000_000) // 4 seconds
+        await NotificationService.shared.scheduleTestNotification(type: "offer_accepted")
+
+        try? await Task.sleep(nanoseconds: 4_000_000_000) // 4 seconds
+        await NotificationService.shared.scheduleTestNotification(type: "payout_received")
+
+        try? await Task.sleep(nanoseconds: 4_000_000_000) // 4 seconds
+        await NotificationService.shared.scheduleTestNotification(type: "payout_failed")
+
+        print("✅ 6 test notifications scheduled (will appear every 3 seconds)")
+    }
+
+    // MARK: - Delete Account
 
     @MainActor
     private func deleteAccount() async {

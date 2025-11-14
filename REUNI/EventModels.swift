@@ -126,6 +126,7 @@ struct EventSection: Identifiable {
     // Formatted date header: "Monday, November 3"
     var dateHeader: String {
         let formatter = DateFormatter()
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)  // UTC to prevent timezone shifts
         formatter.dateFormat = "EEEE, MMMM d"
         return formatter.string(from: date)
     }
@@ -146,19 +147,22 @@ struct EventSection: Identifiable {
 // MARK: - Helper Extension for Date Grouping
 extension Array where Element == FatsomaEvent {
     func groupedByDate() -> [EventSection] {
-        let calendar = Calendar.current
+        var calendar = Calendar.current
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!  // Use UTC calendar
 
         // Group events by calendar date
         let grouped = Dictionary(grouping: self) { event -> Date in
             // Try multiple date formats to parse event.date
             // Format 1: Full ISO8601 with time (from database): "2025-11-03T22:00:00Z"
             let iso8601Full = ISO8601DateFormatter()
+            iso8601Full.timeZone = TimeZone(secondsFromGMT: 0)  // UTC to prevent timezone shifts
             if let parsedDate = iso8601Full.date(from: event.date) {
                 return calendar.startOfDay(for: parsedDate)
             }
 
             // Format 2: Date only: "2025-11-03"
             let iso8601Date = ISO8601DateFormatter()
+            iso8601Date.timeZone = TimeZone(secondsFromGMT: 0)  // UTC
             iso8601Date.formatOptions = [.withFullDate]
             if let parsedDate = iso8601Date.date(from: event.date) {
                 return calendar.startOfDay(for: parsedDate)
@@ -166,6 +170,7 @@ extension Array where Element == FatsomaEvent {
 
             // Format 3: Try DateFormatter as fallback
             let dateFormatter = DateFormatter()
+            dateFormatter.timeZone = TimeZone(secondsFromGMT: 0)  // UTC
             dateFormatter.dateFormat = "yyyy-MM-dd"
             if let parsedDate = dateFormatter.date(from: event.date) {
                 return calendar.startOfDay(for: parsedDate)

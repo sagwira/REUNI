@@ -28,7 +28,7 @@ class APIService {
     }
 
     /// Fetch Fatsoma events with optional date range filtering, ordered by date and time
-    /// BETA: Shows only priority venues and events within next 14 days
+    /// APP STORE RELEASE: Nottingham events only, 2-month rolling window
     func fetchFatsomaEvents(
         startDate: Date? = nil,
         endDate: Date? = nil,
@@ -36,27 +36,26 @@ class APIService {
     ) {
         Task {
             do {
-                // BETA TESTING: Filter to priority venues only
-                let priorityVenues = [
-                    "Function Next Door",
-                    "THE CELL",
-                    "Stealth",
+                // APP STORE RELEASE: Nottingham organizers only
+                let nottinghamOrganizers = [
+                    "Campus Nottingham Events",
                     "Oz Bar",
                     "House of Disco",
+                    "Stealth",
                     "Cucamara",
-                    "Bodega",
-                    "Rock City",
+                    "Tuned",
+                    "Shapes",
                     "Unit 13",
-                    "The Mixologist",
-                    "Outwork Events"
+                    "Ink Nottingham",
+                    "clubinkuk"
                 ]
 
-                // BETA TESTING: Default to next 14 days if no dates provided
+                // APP STORE RELEASE: Default to 2-month rolling window if no dates provided
                 let now = Date()
-                let fourteenDaysFromNow = Calendar.current.date(byAdding: .day, value: 14, to: now)!
+                let twoMonthsFromNow = Calendar.current.date(byAdding: .day, value: 60, to: now)!
 
                 let startFilterDate = startDate ?? now
-                let endFilterDate = endDate ?? fourteenDaysFromNow
+                let endFilterDate = endDate ?? twoMonthsFromNow
 
                 var query = supabase
                     .from("fatsoma_events")
@@ -65,12 +64,15 @@ class APIService {
                         fatsoma_tickets(*)
                     """)
 
-                // Date filtering: show events from now to 14 days ahead
+                // Date filtering: show events from now to 2 months ahead
                 let formatter = ISO8601DateFormatter()
                 formatter.formatOptions = [.withFullDate]
 
                 query = query.gte("event_date", value: formatter.string(from: startFilterDate))
                 query = query.lte("event_date", value: formatter.string(from: endFilterDate))
+
+                // City filtering: Nottingham only
+                query = query.eq("city", value: "Nottingham")
 
                 let response: [SupabaseFatsomaEvent] = try await query
                     .order("event_date", ascending: true)
@@ -78,15 +80,16 @@ class APIService {
                     .execute()
                     .value
 
-                // BETA: Filter by priority venues on client side
+                // APP STORE RELEASE: Filter by Nottingham organizers only
                 let allEvents = response.map { $0.toFatsomaEvent() }
                 let filteredEvents = allEvents.filter { event in
-                    priorityVenues.contains { venue in
-                        event.company.localizedCaseInsensitiveContains(venue)
+                    // Check if event is from one of our Nottingham organizers
+                    nottinghamOrganizers.contains { organizer in
+                        event.company.localizedCaseInsensitiveContains(organizer)
                     }
                 }
 
-                print("📊 Fetched \(allEvents.count) events, filtered to \(filteredEvents.count) priority venue events")
+                print("📊 Fetched \(allEvents.count) events, filtered to \(filteredEvents.count) Nottingham events")
 
                 completion(.success(filteredEvents))
             } catch {
@@ -124,24 +127,23 @@ class APIService {
     func searchEvents(query: String, completion: @escaping @Sendable (Result<[FatsomaEvent], Error>) -> Void) {
         Task {
             do {
-                // BETA TESTING: Filter to priority venues only
-                let priorityVenues = [
-                    "Function Next Door",
-                    "THE CELL",
-                    "Stealth",
+                // APP STORE RELEASE: Nottingham organizers only
+                let nottinghamOrganizers = [
+                    "Campus Nottingham Events",
                     "Oz Bar",
                     "House of Disco",
+                    "Stealth",
                     "Cucamara",
-                    "Bodega",
-                    "Rock City",
+                    "Tuned",
+                    "Shapes",
                     "Unit 13",
-                    "The Mixologist",
-                    "Outwork Events"
+                    "Ink Nottingham",
+                    "clubinkuk"
                 ]
 
-                // BETA TESTING: Only show events within next 14 days
+                // APP STORE RELEASE: 2-month rolling window
                 let now = Date()
-                let fourteenDaysFromNow = Calendar.current.date(byAdding: .day, value: 14, to: now)!
+                let twoMonthsFromNow = Calendar.current.date(byAdding: .day, value: 60, to: now)!
                 let formatter = ISO8601DateFormatter()
                 formatter.formatOptions = [.withFullDate]
 
@@ -153,7 +155,7 @@ class APIService {
                     """)
                     .ilike("name", pattern: "\(query)%")
                     .gte("event_date", value: formatter.string(from: now))
-                    .lte("event_date", value: formatter.string(from: fourteenDaysFromNow))
+                    .lte("event_date", value: formatter.string(from: twoMonthsFromNow))
                     .order("name", ascending: true)
 
                 let response: [SupabaseFatsomaEvent] = try await searchQuery
@@ -172,7 +174,7 @@ class APIService {
                         """)
                         .ilike("name", pattern: "%\(query)%")
                         .gte("event_date", value: formatter.string(from: now))
-                        .lte("event_date", value: formatter.string(from: fourteenDaysFromNow))
+                        .lte("event_date", value: formatter.string(from: twoMonthsFromNow))
                         .order("name", ascending: true)
                         .execute()
                         .value
@@ -180,14 +182,14 @@ class APIService {
                     events = fallbackResponse.map { $0.toFatsomaEvent() }
                 }
 
-                // BETA: Filter by priority venues
+                // APP STORE RELEASE: Filter by Nottingham organizers
                 let filteredEvents = events.filter { event in
-                    priorityVenues.contains { venue in
-                        event.company.localizedCaseInsensitiveContains(venue)
+                    nottinghamOrganizers.contains { organizer in
+                        event.company.localizedCaseInsensitiveContains(organizer)
                     }
                 }
 
-                print("📊 Search '\(query)': found \(events.count) events, filtered to \(filteredEvents.count) priority venue events")
+                print("📊 Search '\(query)': found \(events.count) events, filtered to \(filteredEvents.count) Nottingham events")
 
                 completion(.success(filteredEvents))
             } catch let DecodingError.keyNotFound(key, context) {
@@ -549,10 +551,32 @@ class APIService {
                     seller_university: sellerUniversity
                 )
 
-                try await supabase
+                // Struct to decode the inserted ticket response
+                struct InsertedTicket: Decodable {
+                    let id: String
+                }
+
+                let response: InsertedTicket = try await supabase
                     .from("user_tickets")
                     .insert(ticketData)
+                    .select()
+                    .single()
                     .execute()
+                    .value
+
+                let ticketId = response.id
+                print("✅ Ticket inserted with ID: \(ticketId)")
+
+                // Send listing confirmation email (non-blocking)
+                Task.detached {
+                    do {
+                        try await self.sendListingConfirmationEmail(ticketId: ticketId, userId: userId)
+                        print("✅ Listing confirmation email sent")
+                    } catch {
+                        print("⚠️ Failed to send listing confirmation email: \(error.localizedDescription)")
+                        // Don't fail the upload if email fails
+                    }
+                }
 
                 completion(.success("Ticket uploaded successfully"))
             } catch {
@@ -651,10 +675,32 @@ class APIService {
                     seller_university: sellerUniversity
                 )
 
-                try await supabase
+                // Struct to decode the inserted ticket response
+                struct InsertedTicket: Decodable {
+                    let id: String
+                }
+
+                let response: InsertedTicket = try await supabase
                     .from("user_tickets")
                     .insert(ticketData)
+                    .select()
+                    .single()
                     .execute()
+                    .value
+
+                let ticketId = response.id
+                print("✅ Ticket inserted with ID: \(ticketId)")
+
+                // Send listing confirmation email (non-blocking)
+                Task.detached {
+                    do {
+                        try await self.sendListingConfirmationEmail(ticketId: ticketId, userId: userId)
+                        print("✅ Listing confirmation email sent")
+                    } catch {
+                        print("⚠️ Failed to send listing confirmation email: \(error.localizedDescription)")
+                        // Don't fail the upload if email fails
+                    }
+                }
 
                 completion(.success("Ticket uploaded successfully"))
             } catch {
@@ -912,5 +958,43 @@ struct SupabaseFatsomaTicket: Codable {
             currency: currency,
             availability: availability
         )
+    }
+}
+
+// MARK: - Listing Confirmation Email
+extension APIService {
+    /// Send listing confirmation email via Resend Edge Function
+    func sendListingConfirmationEmail(ticketId: String, userId: String) async throws {
+        struct EmailRequest: Encodable {
+            let ticket_id: String
+            let user_id: String
+        }
+
+        let request = EmailRequest(ticket_id: ticketId, user_id: userId)
+
+        print("📧 Calling send-listing-confirmation Edge Function...")
+        print("   Ticket ID: \(ticketId)")
+        print("   User ID: \(userId)")
+
+        struct EmailResponse: Decodable {
+            let success: Bool
+            let message: String
+            let email_id: String?
+        }
+
+        let response: EmailResponse = try await supabase.functions
+            .invoke(
+                "send-listing-confirmation",
+                options: FunctionInvokeOptions(body: request)
+            )
+
+        if !response.success {
+            throw NSError(domain: "EmailError", code: -1, userInfo: [NSLocalizedDescriptionKey: response.message])
+        }
+
+        print("✅ Listing confirmation email sent successfully")
+        if let emailId = response.email_id {
+            print("   Email ID: \(emailId)")
+        }
     }
 }

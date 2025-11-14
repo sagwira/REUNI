@@ -126,7 +126,7 @@ class StripeSellerService {
 
         print("🔐 Creating Stripe account for user: \(userId)")
         print("📧 Email: \(userProfile.email ?? "none")")
-        print("📱 Phone: \(userProfile.phoneNumber ?? "none")")
+        print("📱 Phone: \(userProfile.phoneNumber)")
 
         do {
             struct CreateAccountRequest: Encodable {

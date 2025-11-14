@@ -4,7 +4,7 @@ import { createSecureResponse, createSecureErrorResponse, handleCorsPreFlight } 
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
-const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 interface PurchaseEmailRequest {
   transaction_id: string
@@ -20,7 +20,7 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
     const { transaction_id, buyer_id, seller_id, ticket_id } = await req.json() as PurchaseEmailRequest
 
     console.log('📧 Sending purchase confirmation emails...')
@@ -61,8 +61,8 @@ serve(async (req) => {
         'Authorization': `Bearer ${RESEND_API_KEY}`
       },
       body: JSON.stringify({
-        from: 'REUNI <tickets@reuniapp.com>',
-        reply_to: 'info@reuniapp.com',
+        from: 'REUNI <noreply@support.reuniapp.com>',
+        reply_to: 'info@support.reuniapp.com',
         to: buyer.email,
         subject: `✅ Your ticket for ${ticket.event_name}`,
         html: generateBuyerEmail({
@@ -82,8 +82,9 @@ serve(async (req) => {
 
     if (!buyerEmailResponse.ok) {
       const error = await buyerEmailResponse.text()
-      console.error('❌ Failed to send buyer email:', error)
-      throw new Error('Failed to send buyer confirmation email')
+      console.error('❌ Resend API error (buyer):', error)
+      console.error('Response status:', buyerEmailResponse.status)
+      throw new Error(`Failed to send buyer email (${buyerEmailResponse.status}): ${error}`)
     }
 
     console.log('✅ Buyer confirmation email sent')
@@ -96,30 +97,25 @@ serve(async (req) => {
         'Authorization': `Bearer ${RESEND_API_KEY}`
       },
       body: JSON.stringify({
-        from: 'REUNI <sales@reuniapp.com>',
-        reply_to: 'info@reuniapp.com',
+        from: 'REUNI <noreply@support.reuniapp.com>',
+        reply_to: 'info@support.reuniapp.com',
         to: seller.email,
         subject: `💰 Your ticket was sold: ${ticket.event_name}`,
         html: generateSellerEmail({
           sellerName: seller.full_name || seller.username,
           eventName: ticket.event_name,
           buyerUsername: buyer.username,
-          saleAmount: transaction.amount,
+          saleAmount: transaction.seller_amount || transaction.ticket_price,
           quantity: ticket.quantity,
-          transactionId: transaction_id,
-          escrowReleaseDate: new Date(transaction.escrow_hold_until).toLocaleDateString('en-GB', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          })
+          transactionId: transaction_id
         })
       })
     })
 
     if (!sellerEmailResponse.ok) {
       const error = await sellerEmailResponse.text()
-      console.error('❌ Failed to send seller email:', error)
+      console.error('❌ Resend API error (seller):', error)
+      console.error('Response status:', sellerEmailResponse.status)
       // Don't throw - buyer email is more important
     } else {
       console.log('✅ Seller notification email sent')
@@ -132,7 +128,11 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('❌ Error sending purchase emails:', error)
-    return createSecureErrorResponse(error.message || 'Failed to send purchase confirmation emails', 500)
+    console.error('Error details:', JSON.stringify(error, null, 2))
+    return createSecureErrorResponse(
+      `Failed to send purchase emails: ${error.message || 'Unknown error'}`,
+      500
+    )
   }
 })
 
@@ -298,7 +298,7 @@ function generateBuyerEmail(data: {
                   <td style="padding: 20px;">
                     <h4 style="margin: 0 0 8px; color: #92400e; font-size: 15px; font-weight: 600;">🛡️ Buyer Protection</h4>
                     <p style="margin: 0; color: #92400e; font-size: 13px; line-height: 1.6;">
-                      Your payment is held securely in escrow for 7 days. If there's any issue with your ticket, you can report it and request a refund.
+                      Your payment is held securely in escrow until <strong>6:00 AM the day after the event</strong>. If there's any issue with your ticket (fake, already used, rejected at venue), you can report it before 6:00 AM and request a full refund.
                     </p>
                     ${data.ticketScreenshotUrl ? `
                     <p style="margin: 8px 0 0; color: #92400e; font-size: 13px; line-height: 1.6;">
@@ -315,7 +315,7 @@ function generateBuyerEmail(data: {
           <tr>
             <td style="padding: 0 40px 40px;">
               <p style="margin: 0; color: #666; font-size: 14px; text-align: center; line-height: 1.6;">
-                Questions or issues? Reply to this email or contact us at <a href="mailto:info@reuniapp.com" style="color: #FF3B30; text-decoration: none;">info@reuniapp.com</a>
+                Questions or issues? Reply to this email for support.
               </p>
             </td>
           </tr>
@@ -346,7 +346,6 @@ function generateSellerEmail(data: {
   saleAmount: number
   quantity: number
   transactionId: string
-  escrowReleaseDate: string
 }): string {
   return `
 <!DOCTYPE html>
@@ -418,9 +417,9 @@ function generateSellerEmail(data: {
               <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #eff6ff; border-radius: 8px; border-left: 4px solid #3b82f6;">
                 <tr>
                   <td style="padding: 20px;">
-                    <h4 style="margin: 0 0 8px; color: #1e40af; font-size: 15px; font-weight: 600;">🔒 Escrow Protection</h4>
+                    <h4 style="margin: 0 0 8px; color: #1e40af; font-size: 15px; font-weight: 600;">💰 Fast Payout</h4>
                     <p style="margin: 0; color: #1e40af; font-size: 13px; line-height: 1.6;">
-                      Your funds are being held securely in escrow until <strong>${data.escrowReleaseDate}</strong>. This protects both you and the buyer. After this date, funds will be automatically released to your Stripe account.
+                      Your funds are held securely in escrow and will be automatically released to your Stripe account at <strong>6:00 AM the day after the event</strong>. If the buyer reports an issue before 6:00 AM, we'll investigate before releasing payment.
                     </p>
                   </td>
                 </tr>
@@ -435,8 +434,9 @@ function generateSellerEmail(data: {
               <ol style="margin: 0; padding-left: 20px; color: #666; font-size: 15px; line-height: 1.8;">
                 <li>Ensure your ticket screenshot is uploaded (if not already)</li>
                 <li>Buyer can now view their ticket in the app</li>
-                <li>Funds will be released in 7 days if no disputes</li>
-                <li>You'll receive another email when funds are released</li>
+                <li>Funds will be released at 6:00 AM the day after the event</li>
+                <li>If buyer reports an issue, we'll notify you immediately</li>
+                <li>You'll receive payment confirmation when funds are released</li>
               </ol>
             </td>
           </tr>
@@ -454,7 +454,7 @@ function generateSellerEmail(data: {
           <tr>
             <td style="padding: 0 40px 40px;">
               <p style="margin: 0; color: #666; font-size: 14px; text-align: center; line-height: 1.6;">
-                Questions? Reply to this email or contact us at <a href="mailto:info@reuniapp.com" style="color: #22c55e; text-decoration: none;">info@reuniapp.com</a>
+                Questions? Reply to this email for support.
               </p>
             </td>
           </tr>

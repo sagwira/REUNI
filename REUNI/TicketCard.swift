@@ -50,19 +50,14 @@ struct TicketCard: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Event Image (public promotional image, not sensitive ticket screenshot)
-            if let imageUrl = event.eventImageUrl, !imageUrl.isEmpty {
+            // Event Image - Shows image while loading, hides completely if fails (clean look)
+            if let imageUrl = event.eventImageUrl,
+               !imageUrl.isEmpty,
+               let imageURL = URL(string: imageUrl) {
                 let isFixr = event.ticketSource.lowercased().contains("fixr")
 
-                AsyncImage(url: URL(string: imageUrl)) { phase in
-                    switch phase {
-                    case .empty:
-                        Rectangle()
-                            .fill(Color.gray.opacity(0.2))
-                            .overlay(
-                                ProgressView()
-                            )
-                    case .success(let image):
+                CachedAsyncImage(url: imageURL) { image in
+                    Group {
                         if isFixr {
                             // Fixr: Independent rendering with padding to match text width
                             image
@@ -79,23 +74,25 @@ struct TicketCard: View {
                                 .frame(height: 200)
                                 .clipped()
                         }
-                    case .failure(let error):
-                        Rectangle()
-                            .fill(Color.gray.opacity(0.2))
-                            .overlay(
-                                Image(systemName: "photo")
-                                    .font(.system(size: 40))
-                                    .foregroundColor(.gray)
-                            )
-                            .onAppear {
-                                print("❌ Failed to load image for '\(event.title)': \(error.localizedDescription)")
-                                print("   URL: \(imageUrl)")
-                            }
-                    @unknown default:
-                        EmptyView()
                     }
+                } placeholder: {
+                    // Loading state: gradient with spinner
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.red.opacity(0.3), Color.red.opacity(0.2)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(height: 200)
+                        .overlay(
+                            ProgressView()
+                                .tint(.white)
+                                .scaleEffect(1.2)
+                        )
                 }
-                .id(imageUrl)
+                // If image fails: CachedAsyncImage shows EmptyView (clean, no image)
             }
 
             // Ticket Details

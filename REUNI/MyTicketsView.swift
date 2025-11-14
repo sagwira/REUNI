@@ -20,34 +20,31 @@ struct MyTicketsView: View {
             themeManager.backgroundColor
                 .ignoresSafeArea()
 
-            // Content - Transparent TabView
-            TabView(selection: $selectedTab) {
-                // My Listings Tab
-                MyListingsView(
-                    authManager: authManager,
-                    themeManager: themeManager
-                )
-                .tag(0)
-
-                // My Purchases Tab
-                MyPurchasesView(
-                    authManager: authManager,
-                    themeManager: themeManager
-                )
-                .tag(1)
+            // Content - Conditional View
+            Group {
+                if selectedTab == 0 {
+                    MyListingsView(
+                        authManager: authManager,
+                        themeManager: themeManager
+                    )
+                    .transition(.opacity)
+                } else {
+                    MyPurchasesView(
+                        authManager: authManager,
+                        themeManager: themeManager
+                    )
+                    .transition(.opacity)
+                }
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .scrollContentBackground(.hidden)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(themeManager.backgroundColor)
-            .onAppear {
-                // Remove TabView's page background at UIKit level
-                UIPageControl.appearance().backgroundColor = .clear
-                UIScrollView.appearance().backgroundColor = .clear
-            }
             .ignoresSafeArea(.container, edges: .all)
 
             // Floating Tab Selector - Liquid Glass Design
             VStack(spacing: 0) {
+                Spacer()
+                    .frame(height: 12) // Top safe area padding
+
                 HStack(spacing: 4) {
                     // My Listings Tab
                     Button(action: {
@@ -115,7 +112,10 @@ struct MyTicketsView: View {
                     }
                 }
                 .padding(.horizontal, 40)
+
+                Spacer() // Push to top
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToMyPurchases"))) { _ in
             // Switch to My Purchases tab when user completes payment
@@ -188,7 +188,7 @@ struct MyListingsView: View {
                         .frame(height: 0)
 
                         // Top spacer for floating tab selector
-                        Color.clear.frame(height: 0)
+                        Color.clear.frame(height: 72)
 
                         ForEach(myTickets) { ticket in
                             TicketCard(
@@ -440,7 +440,7 @@ struct MyPurchasesView: View {
                         .frame(height: 0)
 
                         // Top spacer for floating tab selector
-                        Color.clear.frame(height: 0)
+                        Color.clear.frame(height: 72)
 
                         ForEach(myPurchases) { ticket in
                             PurchasedTicketRow(
@@ -598,50 +598,36 @@ struct PurchasedTicketRow: View {
         VStack(spacing: 12) {
             // Ticket Preview Card
             VStack(alignment: .leading, spacing: 12) {
-                // Event Image
-                if let eventImageUrl = ticket.eventImageUrl, !eventImageUrl.isEmpty {
-                    AsyncImage(url: URL(string: eventImageUrl)) { phase in
-                        switch phase {
-                        case .empty:
-                            Rectangle()
-                                .fill(themeManager.cardBackground)
-                                .frame(height: 160)
-                                .overlay(ProgressView().tint(themeManager.accentColor))
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(height: 160)
-                                .clipped()
-                        case .failure:
-                            Rectangle()
-                                .fill(themeManager.cardBackground)
-                                .frame(height: 160)
-                                .overlay(
-                                    Image(systemName: "photo")
-                                        .foregroundColor(themeManager.secondaryText)
+                // Event Image - Shows image while loading, hides completely if fails
+                if let eventImageUrl = ticket.eventImageUrl,
+                   !eventImageUrl.isEmpty,
+                   let imageURL = URL(string: eventImageUrl) {
+                    CachedAsyncImage(url: imageURL) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(height: 160)
+                            .clipped()
+                            .cornerRadius(12)
+                    } placeholder: {
+                        // Loading state: gradient with spinner
+                        Rectangle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.red.opacity(0.3), Color.red.opacity(0.2)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
                                 )
-                        @unknown default:
-                            EmptyView()
-                        }
-                    }
-                    .cornerRadius(12)
-                } else {
-                    Rectangle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.red.opacity(0.6), Color.red.opacity(0.4)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
                             )
-                        )
-                        .frame(height: 160)
-                        .overlay(
-                            Image(systemName: "ticket.fill")
-                                .font(.system(size: 50))
-                                .foregroundColor(.white.opacity(0.6))
-                        )
-                        .cornerRadius(12)
+                            .frame(height: 160)
+                            .overlay(
+                                ProgressView()
+                                    .tint(.white)
+                                    .scaleEffect(1.2)
+                            )
+                            .cornerRadius(12)
+                    }
+                    // If image fails: CachedAsyncImage shows EmptyView (clean look)
                 }
 
                 // Event Details
@@ -713,11 +699,23 @@ struct PurchasedTicketRow: View {
 
                     // Report Issue Button
                     Button(action: {
+                        if transactionId == nil && !isLoadingTransaction {
+                            // If still loading or failed, retry loading transaction
+                            Task {
+                                await loadTransactionId()
+                            }
+                        }
                         showReportIssue = true
                     }) {
                         HStack(spacing: 6) {
-                            Image(systemName: "exclamationmark.bubble.fill")
-                                .font(.system(size: 15))
+                            if isLoadingTransaction {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                    .tint(themeManager.primaryText)
+                            } else {
+                                Image(systemName: "exclamationmark.bubble.fill")
+                                    .font(.system(size: 15))
+                            }
                             Text("Report Issue")
                                 .font(.system(size: 15, weight: .semibold))
                         }
@@ -731,8 +729,6 @@ struct PurchasedTicketRow: View {
                                 .stroke(themeManager.borderColor, lineWidth: 1)
                         )
                     }
-                    .disabled(transactionId == nil)
-                    .opacity(transactionId == nil ? 0.5 : 1.0)
                 }
                 .padding(.horizontal, 4)
                 .padding(.top, 4)
@@ -751,13 +747,13 @@ struct PurchasedTicketRow: View {
         }
         .sheet(isPresented: $showReportIssue) {
             if let txId = transactionId {
-                ReportIssueSheet(
+                ReportIssueFlow(
                     themeManager: themeManager,
                     authManager: authManager,
                     ticket: ticket,
                     transactionId: txId,
-                    onSuccess: {
-                        // Refresh or show success message
+                    onComplete: {
+                        // Show success message
                         print("✅ Issue reported successfully")
                     }
                 )
@@ -767,33 +763,40 @@ struct PurchasedTicketRow: View {
 
     private func loadTransactionId() async {
         guard let userId = authManager.currentUserId else {
-            isLoadingTransaction = false
+            await MainActor.run {
+                isLoadingTransaction = false
+            }
             return
         }
 
+        print("🔍 Loading transaction for ticket: \(ticket.id), buyer: \(userId.uuidString)")
+
         do {
-            // Query transactions table to find the transaction for this purchased ticket
-            let response: [Transaction] = try await supabase
-                .from("transactions")
-                .select()
-                .eq("buyer_id", value: userId.uuidString)
-                .eq("ticket_id", value: ticket.id)
-                .eq("status", value: "completed")
+            // Query the ticket to get its transaction_id directly
+            let response: TicketWithTransaction = try await supabase
+                .from("user_tickets")
+                .select("transaction_id")
+                .eq("id", value: ticket.id)
+                .single()
                 .execute()
                 .value
 
             await MainActor.run {
-                if let transaction = response.first {
-                    transactionId = transaction.id
-                    print("✅ Found transaction ID for ticket: \(transaction.id)")
+                if let txId = response.transactionId {
+                    transactionId = txId
+                    print("✅ Found transaction ID from ticket: \(txId)")
                 } else {
-                    print("⚠️ No transaction found for ticket: \(ticket.id)")
+                    print("⚠️ Ticket has no transaction_id: \(ticket.id)")
+                    print("   This shouldn't happen for purchased tickets")
+                    transactionId = nil
                 }
                 isLoadingTransaction = false
             }
         } catch {
             print("❌ Error loading transaction ID: \(error)")
+            print("   Error details: \(error.localizedDescription)")
             await MainActor.run {
+                transactionId = nil
                 isLoadingTransaction = false
             }
         }
@@ -825,6 +828,14 @@ struct Transaction: Codable, Identifiable {
         case amount
         case buyerTotal = "buyer_total"
         case createdAt = "created_at"
+    }
+}
+
+struct TicketWithTransaction: Codable {
+    let transactionId: String?
+
+    enum CodingKeys: String, CodingKey {
+        case transactionId = "transaction_id"
     }
 }
 

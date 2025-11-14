@@ -33,7 +33,7 @@ struct EventTicketSelectionView: View {
                     )
                     .environment(authManager)
                     ) {
-                        TicketTypeRow(ticket: ticket, lastEntry: event.lastEntry)
+                        TicketTypeRow(ticket: ticket, eventDate: event.date, eventTime: event.time)
                     }
                 }
                 .listStyle(.plain)
@@ -98,20 +98,56 @@ struct EventHeaderView: View {
 // MARK: - Ticket Type Row
 struct TicketTypeRow: View {
     let ticket: FatsomaTicket
-    let lastEntry: String
+    let eventDate: String
+    let eventTime: String
+
+    private var formattedDate: String {
+        // Parse and format the event date
+        let iso8601Full = ISO8601DateFormatter()
+        iso8601Full.timeZone = TimeZone(secondsFromGMT: 0)  // UTC to prevent timezone shifts
+        if let parsedDate = iso8601Full.date(from: eventDate) {
+            let formatter = DateFormatter()
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)  // UTC
+            formatter.dateFormat = "EEEE, MMMM d, yyyy" // "Monday, November 11, 2025"
+            return formatter.string(from: parsedDate)
+        }
+
+        let iso8601Date = ISO8601DateFormatter()
+        iso8601Date.timeZone = TimeZone(secondsFromGMT: 0)  // UTC
+        iso8601Date.formatOptions = [.withFullDate]
+        if let parsedDate = iso8601Date.date(from: eventDate) {
+            let formatter = DateFormatter()
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)  // UTC
+            formatter.dateFormat = "EEEE, MMMM d, yyyy"
+            return formatter.string(from: parsedDate)
+        }
+
+        return eventDate
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(ticket.ticketType)
                 .font(.headline)
 
-            if !lastEntry.isEmpty && lastEntry != "TBA" {
+            // Show event date and time instead of last entry
+            HStack(spacing: 4) {
+                Image(systemName: "calendar")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Text(formattedDate)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            if !eventTime.isEmpty && eventTime != "TBA" {
                 HStack(spacing: 4) {
                     Image(systemName: "clock")
                         .font(.caption)
                         .foregroundColor(.secondary)
 
-                    Text("Last Entry: \(lastEntry)")
+                    Text("Doors open: \(eventTime)")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }

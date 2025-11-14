@@ -18,11 +18,23 @@ struct MainContainerView: View {
     @State private var showUploadSheet = false
     @State private var showProfileCompletion = false
     @State private var isCheckingProfile = true
+    @StateObject private var networkMonitor = NetworkMonitor()
 
     private let offerService = OfferService()
 
     var body: some View {
-        TabView(selection: $navigationCoordinator.currentScreen) {
+        VStack(spacing: 0) {
+            // Offline indicator banner
+            OfflineBanner(themeManager: themeManager, isOffline: !networkMonitor.effectiveConnectionState)
+                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: networkMonitor.effectiveConnectionState)
+                .onTapGesture(count: 3) {
+                    // Triple tap to enable debug mode
+                    networkMonitor.isDebugMode = true
+                    networkMonitor.toggleDebugOffline()
+                }
+
+            // Main tab view
+            TabView(selection: $navigationCoordinator.currentScreen) {
             // Home Tab
             Tab(value: .home) {
                 HomeView(authManager: authManager, navigationCoordinator: navigationCoordinator, themeManager: themeManager)
@@ -40,8 +52,10 @@ struct MainContainerView: View {
                 }
             } else {
                 Tab(value: .myListings) {
-                    MyTicketsView(authManager: authManager, navigationCoordinator: navigationCoordinator, themeManager: themeManager)
-                        .environment(navigationCoordinator)
+                    NavigationStack {
+                        MyTicketsView(authManager: authManager, navigationCoordinator: navigationCoordinator, themeManager: themeManager)
+                            .environment(navigationCoordinator)
+                    }
                 } label: {
                     Label("Tickets", systemImage: "ticket.fill")
                 }
@@ -66,7 +80,7 @@ struct MainContainerView: View {
 
             // Profile Tab
             Tab(value: .profile) {
-                ProfileView(authManager: authManager, navigationCoordinator: navigationCoordinator, themeManager: themeManager)
+                ProfileView(authManager: authManager, navigationCoordinator: navigationCoordinator, themeManager: themeManager, networkMonitor: networkMonitor)
                     .environment(navigationCoordinator)
             } label: {
                 Label("Profile", systemImage: "person.fill")
@@ -103,6 +117,16 @@ struct MainContainerView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("SwitchToMyPurchases"))) { _ in
             navigationCoordinator.navigate(to: .myListings)
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("NavigateToMyPurchases"))) { _ in
+            navigationCoordinator.navigate(to: .myListings)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("TicketSold"))) { _ in
+            navigationCoordinator.navigate(to: .myListings)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("NavigateToNotifications"))) { _ in
+            navigationCoordinator.navigate(to: .notifications)
+        }
+        } // End of VStack
     }
 
     private func loadNotificationCount() async {

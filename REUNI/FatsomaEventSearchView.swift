@@ -144,24 +144,52 @@ struct EventRow: View {
     }
 
     private var formattedDate: String {
-        // Parse the date and format it nicely
+        // Parse the date and format it nicely - full date for clarity
         let iso8601Full = ISO8601DateFormatter()
+        iso8601Full.timeZone = TimeZone(secondsFromGMT: 0)  // UTC to prevent timezone shifts
         if let parsedDate = iso8601Full.date(from: event.date) {
             let formatter = DateFormatter()
-            formatter.dateFormat = "EEE, MMM d" // "Mon, Nov 3"
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)  // UTC
+            formatter.dateFormat = "EEE, MMM d, yyyy" // "Mon, Nov 3, 2025"
             return formatter.string(from: parsedDate)
         }
 
         // Fallback to date only format
         let iso8601Date = ISO8601DateFormatter()
+        iso8601Date.timeZone = TimeZone(secondsFromGMT: 0)  // UTC
         iso8601Date.formatOptions = [.withFullDate]
         if let parsedDate = iso8601Date.date(from: event.date) {
             let formatter = DateFormatter()
-            formatter.dateFormat = "EEE, MMM d"
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)  // UTC
+            formatter.dateFormat = "EEE, MMM d, yyyy"
             return formatter.string(from: parsedDate)
         }
 
         return event.date // Fallback to raw date string
+    }
+
+    private var shortFormattedDate: String {
+        // Shorter format for compact display
+        let iso8601Full = ISO8601DateFormatter()
+        iso8601Full.timeZone = TimeZone(secondsFromGMT: 0)  // UTC
+        if let parsedDate = iso8601Full.date(from: event.date) {
+            let formatter = DateFormatter()
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)  // UTC
+            formatter.dateFormat = "MMM d" // "Nov 3"
+            return formatter.string(from: parsedDate)
+        }
+
+        let iso8601Date = ISO8601DateFormatter()
+        iso8601Date.timeZone = TimeZone(secondsFromGMT: 0)  // UTC
+        iso8601Date.formatOptions = [.withFullDate]
+        if let parsedDate = iso8601Date.date(from: event.date) {
+            let formatter = DateFormatter()
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)  // UTC
+            formatter.dateFormat = "MMM d"
+            return formatter.string(from: parsedDate)
+        }
+
+        return event.date
     }
 
     var body: some View {
@@ -191,31 +219,47 @@ struct EventRow: View {
                     .font(.system(size: 16, weight: .semibold))
                     .lineLimit(2)
 
-                // Date, time and location
+                // Event Date - prominently displayed for weekly events
                 HStack(spacing: 4) {
-                    Label(formattedDate, systemImage: "calendar")
+                    Image(systemName: "calendar")
                         .font(.caption)
+                        .foregroundColor(.blue)
+
+                    Text(formattedDate)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.blue)
+                }
+
+                // Time and location
+                HStack(spacing: 4) {
+                    Image(systemName: "clock")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+
+                    Text(event.time)
+                        .font(.caption2)
                         .foregroundColor(.secondary)
 
                     Text("•")
-                        .font(.caption)
+                        .font(.caption2)
                         .foregroundColor(.secondary)
 
-                    Label(event.time, systemImage: "clock")
-                        .font(.caption)
+                    Image(systemName: "mappin.circle.fill")
+                        .font(.caption2)
                         .foregroundColor(.secondary)
+
+                    Text(event.location)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
                 }
-
-                Label(event.location, systemImage: "mappin.circle")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
 
                 // Ticket count
                 if !event.tickets.isEmpty {
                     Text("\(event.tickets.count) ticket type\(event.tickets.count == 1 ? "" : "s")")
                         .font(.caption2)
-                        .foregroundColor(.blue)
+                        .foregroundColor(.gray)
                 }
             }
 
@@ -454,8 +498,18 @@ class FatsomaSearchViewModel: ObservableObject {
                 switch result {
                 case .success(let events):
                     print("✅ Received \(events.count) events")
-                    self?.allEvents = events
-                    let sections = events.groupedByDate()
+
+                    // Filter for quality: only show events with image, valid date, and tickets
+                    let qualityEvents = events.filter { event in
+                        let hasImage = !event.imageUrl.isEmpty
+                        let hasValidDate = !event.date.isEmpty && !event.date.uppercased().contains("TBA")
+                        let hasTickets = !event.tickets.isEmpty
+                        return hasImage && hasValidDate && hasTickets
+                    }
+                    print("✨ Filtered to \(qualityEvents.count) complete events (removed \(events.count - qualityEvents.count) incomplete)")
+
+                    self?.allEvents = qualityEvents
+                    let sections = qualityEvents.groupedByDate()
                     print("📅 Grouped into \(sections.count) date sections")
                     for section in sections.prefix(5) {
                         print("  - \(section.relativeDateHeader): \(section.events.count) events")
@@ -488,6 +542,7 @@ class FatsomaSearchViewModel: ObservableObject {
         }
 
         // Filter locally from allEvents (faster than API call)
+        // allEvents already filtered for quality in loadAllEvents()
         let filtered = allEvents.filter { event in
             event.name.localizedCaseInsensitiveContains(searchText) ||
             event.company.localizedCaseInsensitiveContains(searchText) ||

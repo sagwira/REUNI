@@ -23,5 +23,7 @@
 	<string>$(SUPABASE_ANON_KEY)</string>
 	<key>STRIPE_PUBLISHABLE_KEY</key>
 	<string>$(STRIPE_PUBLISHABLE_KEY)</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We need your location to include it in issue reports. This helps us verify claims and provide better support.</string>
 </dict>
 </plist>

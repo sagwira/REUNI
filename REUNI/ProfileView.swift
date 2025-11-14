@@ -12,6 +12,7 @@ struct ProfileView: View {
     @Bindable var authManager: AuthenticationManager
     @Bindable var navigationCoordinator: NavigationCoordinator
     @Bindable var themeManager: ThemeManager
+    var networkMonitor: NetworkMonitor?
 
     @State private var sellerService = StripeSellerService.shared
     @State private var stripeAccountStatus: StripeSellerService.SellerAccountStatus = .notCreated
@@ -214,7 +215,7 @@ struct ProfileView: View {
                                 )
                             }
 
-                            NavigationLink(destination: SettingsView(authManager: authManager, navigationCoordinator: navigationCoordinator, themeManager: themeManager)) {
+                            NavigationLink(destination: SettingsView(authManager: authManager, navigationCoordinator: navigationCoordinator, themeManager: themeManager, networkMonitor: networkMonitor)) {
                                 ProfileActionRow(
                                     icon: "gearshape.fill",
                                     title: "Settings",

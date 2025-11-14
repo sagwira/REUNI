@@ -114,6 +114,18 @@ serve(async (req) => {
         break;
       }
 
+      case 'payout.paid': {
+        const payout = event.data.object as Stripe.Payout;
+        await handlePayoutPaid(payout);
+        break;
+      }
+
+      case 'payout.failed': {
+        const payout = event.data.object as Stripe.Payout;
+        await handlePayoutFailed(payout);
+        break;
+      }
+
       default:
         console.log(`Unhandled event type: ${event.type}`);
     }
@@ -242,16 +254,17 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
     console.error('   Error details:', JSON.stringify(buyerTicketError));
   } else {
     console.log('✅ Ticket transferred to buyer successfully');
-    console.log('   New ticket ID:', newTicket?.[0]?.id);
+    console.log('   New ticket ID:', newTicket?.[0]?.new_ticket_id);
 
     // Send purchase receipt email to buyer
     console.log('📧 Sending purchase receipt email to buyer...');
     try {
-      const emailResponse = await supabase.functions.invoke('send-purchase-receipt', {
+      const emailResponse = await supabase.functions.invoke('send-purchase-email', {
         body: {
           transaction_id: transaction?.id,
           buyer_id: buyerId,
-          ticket_id: newTicket?.[0]?.id,
+          seller_id: sellerId,
+          ticket_id: newTicket?.[0]?.new_ticket_id,
         },
       });
 
@@ -266,23 +279,47 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
     }
   }
 
-  // Send notification to seller
-  await supabase.from('notifications').insert({
-    user_id: sellerId,
-    type: 'ticket_purchase',
-    title: 'Ticket Sold! 🎉',
-    message: `Your ticket has been purchased. Funds will be transferred to your account.`,
-    is_read: false,
-  });
+  // Send push notification to seller
+  console.log('📲 Sending push notification to seller...');
+  try {
+    await supabase.functions.invoke('send-push-notification', {
+      body: {
+        userId: sellerId,
+        type: 'ticket_purchased',
+        title: 'Ticket Sold! 🎉',
+        body: `Your ticket for "${originalTicket.event_name}" has been purchased.`,
+        data: {
+          ticket_id: ticketId,
+          event_name: originalTicket.event_name,
+        },
+      },
+    });
+    console.log('✅ Seller push notification sent');
+  } catch (notifError) {
+    console.error('⚠️  Failed to send push notification to seller:', notifError);
+    // Don't fail the webhook if notification fails
+  }
 
-  // Send notification to buyer (with ticket screenshot access)
-  await supabase.from('notifications').insert({
-    user_id: buyerId,
-    type: 'ticket_purchase',
-    title: 'Purchase Successful! 🎟️',
-    message: `You've successfully purchased a ticket. Check "My Tickets" to view details.`,
-    is_read: false,
-  });
+  // Send push notification to buyer
+  console.log('📲 Sending push notification to buyer...');
+  try {
+    await supabase.functions.invoke('send-push-notification', {
+      body: {
+        userId: buyerId,
+        type: 'ticket_bought',
+        title: 'Purchase Successful! 🎟️',
+        body: `You've successfully purchased a ticket for "${originalTicket.event_name}". Check "My Purchases" to view details.`,
+        data: {
+          ticket_id: newTicket?.[0]?.new_ticket_id,
+          event_name: originalTicket.event_name,
+        },
+      },
+    });
+    console.log('✅ Buyer push notification sent');
+  } catch (notifError) {
+    console.error('⚠️  Failed to send push notification to buyer:', notifError);
+    // Don't fail the webhook if notification fails
+  }
 }
 
 // Handle failed payment
@@ -440,4 +477,93 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
       is_read: false,
     },
   ]);
+}
+
+// Handle payout paid (sent to seller's bank account)
+async function handlePayoutPaid(payout: Stripe.Payout) {
+  console.log(`💸 Payout paid: ${payout.id}`);
+  console.log(`   Amount: ${payout.amount / 100} ${payout.currency.toUpperCase()}`);
+  console.log(`   Destination: ${payout.destination}`);
+
+  // Get the seller's user_id from their Stripe account ID
+  const { data: sellerAccount } = await supabase
+    .from('seller_accounts')
+    .select('user_id')
+    .eq('stripe_account_id', payout.destination as string)
+    .single();
+
+  if (!sellerAccount) {
+    console.error('❌ Seller account not found for Stripe account:', payout.destination);
+    return;
+  }
+
+  const sellerId = sellerAccount.user_id;
+  const amountFormatted = (payout.amount / 100).toFixed(2);
+
+  console.log(`✅ Found seller: ${sellerId}`);
+
+  // Send push notification to seller
+  console.log('📲 Sending payout notification to seller...');
+  try {
+    await supabase.functions.invoke('send-push-notification', {
+      body: {
+        userId: sellerId,
+        type: 'payout_received',
+        title: 'Payout Received! 💸',
+        body: `£${amountFormatted} has been sent to your bank account.`,
+        data: {
+          payout_id: payout.id,
+          amount: amountFormatted,
+          currency: payout.currency.toUpperCase(),
+        },
+      },
+    });
+    console.log('✅ Payout notification sent');
+  } catch (notifError) {
+    console.error('⚠️  Failed to send payout notification:', notifError);
+  }
+}
+
+// Handle payout failed
+async function handlePayoutFailed(payout: Stripe.Payout) {
+  console.log(`❌ Payout failed: ${payout.id}`);
+  console.log(`   Failure message: ${payout.failure_message}`);
+
+  // Get the seller's user_id
+  const { data: sellerAccount } = await supabase
+    .from('seller_accounts')
+    .select('user_id')
+    .eq('stripe_account_id', payout.destination as string)
+    .single();
+
+  if (!sellerAccount) {
+    console.error('❌ Seller account not found for Stripe account:', payout.destination);
+    return;
+  }
+
+  const sellerId = sellerAccount.user_id;
+  const amountFormatted = (payout.amount / 100).toFixed(2);
+
+  console.log(`✅ Found seller: ${sellerId}`);
+
+  // Send push notification to seller
+  console.log('📲 Sending payout failure notification to seller...');
+  try {
+    await supabase.functions.invoke('send-push-notification', {
+      body: {
+        userId: sellerId,
+        type: 'payout_failed',
+        title: 'Payout Failed ⚠️',
+        body: `Your payout of £${amountFormatted} failed. Please check your bank details in Stripe.`,
+        data: {
+          payout_id: payout.id,
+          amount: amountFormatted,
+          failure_message: payout.failure_message,
+        },
+      },
+    });
+    console.log('✅ Payout failure notification sent');
+  } catch (notifError) {
+    console.error('⚠️  Failed to send payout failure notification:', notifError);
+  }
 }

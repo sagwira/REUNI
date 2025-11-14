@@ -219,30 +219,35 @@ serve(async (req) => {
       },
     });
 
-    // Create transaction record with ESCROW status
-    // escrow_hold_until will be auto-calculated by database trigger
-    const { error: transactionError } = await supabase.from('transactions').insert({
-      buyer_id: user.id,
-      seller_id: ticket.user_id,
-      ticket_id: ticket_id,
-      stripe_payment_intent_id: paymentIntent.id,
-      ticket_price: ticketPrice,
-      platform_fee: platformFee,
-      seller_amount: sellerAmount, // Seller gets full ticket price (after escrow)
-      buyer_total: buyerTotal, // Buyer pays ticket + platform fee
-      currency: 'gbp',
-      status: 'pending', // Will become 'completed' on payment success
-      escrow_status: 'held', // Funds held in escrow
-      auto_release_eligible: true, // Can be auto-released unless dispute filed
-      payment_initiated_at: new Date().toISOString(),
-    });
+    // Create transaction using RPC function (bypasses RLS/FK type issues)
+    // escrow_hold_until will be auto-calculated by trigger (event_date + 1 day at 6am)
+    console.log('📝 Creating transaction via RPC...');
+    console.log('   buyer_id:', user.id);
+    console.log('   seller_id:', ticket.user_id);
+    console.log('   ticket_id:', ticket_id);
+
+    const { data: transactionResult, error: transactionError } = await supabase
+      .rpc('create_transaction', {
+        p_buyer_id: user.id.toLowerCase(),
+        p_seller_id: ticket.user_id.toLowerCase(),
+        p_ticket_id: ticket_id.toLowerCase(),
+        p_payment_intent_id: paymentIntent.id,
+        p_ticket_price: ticketPrice,
+        p_platform_fee: platformFee,
+        p_seller_amount: sellerAmount,
+        p_buyer_total: buyerTotal
+      });
 
     if (transactionError) {
-      console.error('Transaction creation error:', transactionError);
+      console.error('❌ Transaction creation error:', transactionError);
+      console.error('❌ Error details:', JSON.stringify(transactionError, null, 2));
       // Cancel the payment intent if transaction creation fails
       await stripe.paymentIntents.cancel(paymentIntent.id);
-      throw new Error('Failed to create transaction record');
+      throw new Error(`Failed to create transaction record: ${transactionError.message || transactionError.code}`);
     }
+
+    console.log('✅ Transaction created via RPC:', transactionResult);
+    console.log('   Transaction ID:', transactionResult?.id);
 
     // DON'T mark ticket as pending_payment - keep as 'available' until payment succeeds
     // Webhook will mark as 'sold' when payment completes

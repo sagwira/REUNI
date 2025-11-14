@@ -64,19 +64,19 @@ struct StripeOnboardingSuccessView: View {
 
                 // Benefits Section
                 VStack(alignment: .leading, spacing: 20) {
-                    BenefitRow(
+                    SuccessBenefitRow(
                         icon: "banknote",
                         title: "Start Selling",
                         description: "Upload your event tickets and reach thousands of students"
                     )
 
-                    BenefitRow(
+                    SuccessBenefitRow(
                         icon: "creditcard",
                         title: "Secure Payments",
                         description: "Get paid directly to your bank account"
                     )
 
-                    BenefitRow(
+                    SuccessBenefitRow(
                         icon: "chart.line.uptrend.xyaxis",
                         title: "Track Earnings",
                         description: "View your sales and payouts in real-time"
@@ -114,7 +114,8 @@ struct StripeOnboardingSuccessView: View {
     }
 }
 
-struct BenefitRow: View {
+// BenefitRow component for success view
+private struct SuccessBenefitRow: View {
     let icon: String
     let title: String
     let description: String

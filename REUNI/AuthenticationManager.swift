@@ -132,7 +132,7 @@ class AuthenticationManager {
             print("   Username: \(profile.username)")
             print("   University: \(profile.university)")
             print("   DOB: \(profile.dateOfBirth?.description ?? "nil")")
-            print("   Phone: \(profile.phoneNumber ?? "nil")")
+            print("   Phone: \(profile.phoneNumber)")
         } catch {
             print("❌ Error fetching profile: \(error)")
             if let decodingError = error as? DecodingError {
@@ -590,10 +590,16 @@ class AuthenticationManager {
     @MainActor
     func logout() async {
         do {
+            // Clear device token before logging out
+            await NotificationService.shared.clearDeviceToken()
+
             try await supabase.auth.signOut()
             isAuthenticated = false
             currentUser = nil
             currentUserId = nil
+
+            // Clear notification badge
+            NotificationService.shared.clearBadge()
         } catch {
             print("Error logging out: \(error)")
         }
